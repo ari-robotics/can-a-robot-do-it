@@ -17,7 +17,8 @@ jobs:
         with:
           python-version: "3.11"
       - name: System libraries for headless rendering
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgles2 libgl1-mesa-dri ffmpeg
+        timeout-minutes: 5
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout=10 libegl1 libgles2 libgl1-mesa-dri
       - name: Install
         run: pip install -e ".[simready,dev]"
       - name: Robot models
