@@ -35,6 +35,14 @@ The scene was re-simulated on 40 plausible variants drawn from the uncertainty o
 - `tote_dx` — portal column to tote centre, to the left (currently 0.55 ± 0.1 m, correlation -0.30)
 - `pod_gap` — portal plane to pod face (currently 0.1 ± 0.05 m, correlation -0.29)
 
+## Models and assets used
+
+| Robot | Model | Licence | Reach, payload, joint speeds |
+|---|---|---|---|
+| UR5e | MuJoCo Menagerie `universal_robots_ur5e` at `98a70c5` | BSD-3-Clause | datasheet values kept in `ari_sim/robots.py` |
+| UR10e | MuJoCo Menagerie `universal_robots_ur10e` at `98a70c5` | BSD-3-Clause | datasheet values kept in `ari_sim/robots.py` |
+| CRX-5iA | MuJoCo Menagerie `fanuc_crx5ia` at `98a70c5` | Apache-2.0 | datasheet values kept in `ari_sim/robots.py` |
+
 ## Scale references used
 
 - Black and red totes: 600 x 400 mm Euro footprint

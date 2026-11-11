@@ -92,3 +92,12 @@ def test_robot_catalog_and_scene_robots():
     with pytest.raises(KeyError): register('R2-D2')
     with pytest.raises(KeyError): assets.fetch_robots(['R2-D2'])
     ROBOTS.pop('Test arm')
+
+def test_report_lists_models_and_attributions(fake_assets):
+    from ari_sim.report import provenance
+    sc = _scene([dict(type='asset', name='crate', source='simready:crate_blue_a01', role='container', pos=[-1.2, 0.3, 0.87])])
+    fake_assets.update(id='crate_blue_a01', license='CC-BY-4.0', attribution='crate_blue_a01, SimReady (nvidia/simready-assets), CC-BY-4.0')
+    text = '\n'.join(provenance(S.load(sc), {'robots': {'UR10e': {}}}))
+    assert '| UR10e | MuJoCo Menagerie `universal_robots_ur10e`' in text
+    assert f'`nvidia/simready-assets/crate_blue_a01@{SR.REVISION[:7]}` | CC-BY-4.0' in text
+    assert '- crate_blue_a01, SimReady (nvidia/simready-assets), CC-BY-4.0' in text

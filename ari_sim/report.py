@@ -1,7 +1,7 @@
 """Turn a diagnostic into things a person can look at: a summary image, a cycle video, a Markdown report."""
 import os, json, subprocess, numpy as np, mujoco
 from PIL import Image, ImageDraw, ImageFont
-from . import spec as S
+from . import spec as S, assets
 from .build import build, set_base, scene_view, render
 from .kin import move_time, along
 from .robots import ROBOTS
@@ -92,6 +92,36 @@ def video(sc, res, path, n_show=3, w=1280, h=720, fps=30):
 VERDICT = dict(reach_ok='Reach is validated for a pilot.', reach_ok_if_measured='Reach works on the nominal geometry but depends on dimensions the photos do not pin down: measure before deciding.',
                reach_marginal='Reach is marginal: fewer than half of the targets get a full collision-free cycle.', no_feasible_layout='No tested robot and base position reaches both the pick targets and the drop.')
 
+def _menagerie_licence(folder):
+    p = os.path.join(assets.MENAGERIE, folder, 'LICENSE')
+    t = open(p).read(4000) if os.path.exists(p) else ''
+    if 'Redistribution and use in source and binary forms' in t: return 'BSD-3-Clause' if 'Neither the name' in t else 'BSD-2-Clause'
+    for key, name in (('Apache License', 'Apache-2.0'), ('MIT License', 'MIT'), ('Creative Commons', 'CC-BY')):
+        if key in t: return name
+    return 'see LICENSE in the model folder'
+
+def provenance(sc, res):
+    """Where every robot model and real object came from, its licence, and the attribution it requires."""
+    from .robots import menagerie_dir
+    L = ['', '## Models and assets used', '', '| Robot | Model | Licence | Reach, payload, joint speeds |', '|---|---|---|---|']
+    for r in res['robots']:
+        R = ROBOTS[r]; spec = R.get('datasheet', 'datasheet values kept in `ari_sim/robots.py`')
+        if 'xml' in R: src, lic = f"MuJoCo Menagerie `{menagerie_dir(r)}` at `{assets.MENAGERIE_COMMIT[:7]}`", _menagerie_licence(menagerie_dir(r))
+        else:
+            from . import simready; a = simready.parse(R['simready']); src, lic = f"SimReady `{a['repo']}/{a['folder']}` at `{a['rev'][:7]}`", simready.license(R['simready'])
+        L.append(f'| {r} | {src} | {lic} | {spec} |')
+    objs = [c for c in sc['components'] if c.get('type') == 'asset']
+    if objs:
+        from . import simready
+        L += ['', '| Object | Role | SimReady asset | Licence |', '|---|---|---|---|']
+        metas = []
+        for c in objs:
+            m = simready.get(c['source'].split(':', 1)[1]); metas.append(m)
+            rid = m['id'] if '@' in m['id'] else f"{simready.REPO}/{m['id']}@{simready.REVISION[:7]}"
+            L.append(f"| {c.get('name', '')} | {c.get('role', 'fixture')} | `{rid}` | {m['license']} |")
+        L += ['', 'Attribution:', ''] + [f"- {x}" for x in dict.fromkeys(m['attribution'] for m in metas)]
+    return L
+
 def markdown(sc, res, path):
     L = [f"# {sc['name']} — workstation diagnostic", '', sc.get('description', ''), '', f"**Verdict (reach only): {VERDICT[res['verdict']]}**", '',
          '> Grasp reliability is not assessed by this diagnostic. It checks that the robot can reach, carry and drop — not that it can grip a soft or cluttered item.', '',
@@ -112,6 +142,7 @@ def markdown(sc, res, path):
         if s:
             L += ['', '**Measure on site first** (dimensions that move the result most):', '']
             for k, r in s: L.append(f"- `{k}` — {sc['params'][k].get('note', '')} (currently {sc['params'][k]['value']} ± {sc['params'][k].get('sigma', 0)} m, correlation {r:+.2f})")
+    L += provenance(sc, res)
     if sc.get('scale_references'): L += ['', '## Scale references used', ''] + [f'- {x}' for x in sc['scale_references']]
     if sc.get('assumptions'): L += ['', '## Assumptions', ''] + [f'- {x}' for x in sc['assumptions']]
     open(path, 'w').write('\n'.join(L) + '\n')

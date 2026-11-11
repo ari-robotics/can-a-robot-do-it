@@ -177,14 +177,18 @@ def get(ref, max_mb=200):
         f.write(''.join(f'v {x:.6f} {y:.6f} {z:.6f}\n' for x, y, z in V)); f.write(''.join(f'f {i + 1} {j + 1} {k + 1}\n' for i, j, k in F))
     ext = hi - lo; mass = float(m.body_mass[1:].sum()) or None
     friction = _usd_friction(fetch(ref, max_mb))                # MuJoCo's importer leaves USD physics materials at its default
-    card = os.path.join(_dir(a), 'src', a['folder'], 'com.nvidia.simready.packaging.json')
-    lic = json.load(open(card)).get('license', 'see dataset card') if os.path.exists(card) else 'see dataset card'
+    lic = license(ref)
     warn = []   # flag what a person should double-check before trusting the numbers
     if mass and mass / max(float(np.prod(ext)), 1e-9) < 10: warn.append(f'mass {mass:.3g} kg is implausibly low for a {ext[0]:.2f} x {ext[1]:.2f} x {ext[2]:.2f} m object')
     if max(ext) > 5 or max(ext) < 0.005: warn.append(f'size {max(ext):.3g} m looks wrong (unit error?)')
     meta = dict(id=a['id'], name=a['folder'], mesh=obj, extent=[round(float(x), 4) for x in ext], triangles=len(F), mass=mass, friction=friction, warnings=warn,
                 license=lic, attribution=f"{a['folder']}, SimReady ({a['repo']}), {lic}", download_mb=round(download_mb(ref), 1))
     json.dump(meta, open(meta_p, 'w'), indent=1); return meta
+
+def license(ref):
+    """Licence declared in the asset's SimReady packaging card (downloaded with the asset)."""
+    a = parse(ref); card = os.path.join(_dir(a), 'src', a['folder'], 'com.nvidia.simready.packaging.json')
+    return json.load(open(card)).get('license', 'see dataset card') if os.path.exists(card) else 'see dataset card'
 
 def _usd_friction(root):
     """Static friction of the first USD physics material, if the asset declares one."""
