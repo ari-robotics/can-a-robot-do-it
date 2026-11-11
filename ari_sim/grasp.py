@@ -216,8 +216,10 @@ class Env:
         return dict(out, result='success' if ok else 'dropped', time=T + 1.1, final=[float(x) for x in p]), self.log
 
 def run_batch(sc, base, episodes, outdir, seed=0, per_scene=6, log=print):
-    """Episodes over all graspable objects, 6 objects loaded at a time. Saves one .npz per attempted episode + stats.json."""
-    names = assets.graspable_objects(); os.makedirs(outdir, exist_ok=True)
+    """Episodes over the scene's `item` assets if it declares any, else over all graspable scanned objects; 6 objects
+    loaded at a time. Saves one .npz per attempted episode + stats.json."""
+    items = [it['source'] for it in S.resolve(sc)['items']]
+    names = items or assets.graspable_objects(); os.makedirs(outdir, exist_ok=True)
     # near-equal groups, episodes in proportion to group size: every object gets about the same share
     groups = [list(g) for g in np.array_split(names, int(np.ceil(len(names) / per_scene)))]
     cum = np.round(episodes * np.cumsum([0] + [len(g) for g in groups]) / len(names)).astype(int); rows = []

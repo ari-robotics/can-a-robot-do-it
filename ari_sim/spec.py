@@ -2,7 +2,8 @@
 
 A scene is JSON. Every number may be an expression over named `params`, and every param carries a
 1-sigma uncertainty — that is what lets the diagnostic say which dimension to measure on site.
-`components` come from a short library (box, cylinder, shelf_unit, tote, pick_point, place_point).
+`components` come from a short library (box, cylinder, shelf_unit, tote, pick_point, place_point, asset). An `asset` is a real
+object from the NVIDIA SimReady catalog (see simready.py), placed with its true dimensions.
 
 Frame convention: origin on the floor, z up, metres. The operator stands on the -y side and works towards +y.
 """
@@ -16,6 +17,14 @@ _OPS = {ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv,
 _FUNCS = dict(min=min, max=max, abs=abs, sqrt=math.sqrt)
 
 class SceneError(ValueError): pass
+
+HIDDEN = [0, 0, 0, 0]          # collision stand-ins for a mesh: they collide but are not drawn
+
+def _asset(source):
+    if not (isinstance(source, str) and source.startswith('simready:')): raise SceneError(f'asset source must look like "simready:<name>", got {source!r}')
+    from . import simready
+    try: return simready.get(source.split(':', 1)[1])
+    except (KeyError, ValueError) as e: raise SceneError(str(e)) from None
 
 def _eval(node, env):
     if isinstance(node, ast.Expression): return _eval(node.body, env)
@@ -66,14 +75,19 @@ def resolve(sc, values=None):
     """Expand components into primitive geoms + pick/place targets for one set of param values."""
     env = nominal(sc) if values is None else values
     task = sc.get('task', {}); inset = float(task.get('pick_inset', 0.20)); pre_off = float(task.get('pre_offset', 0.12))
-    geoms, picks, places, names = [], [], [], set()
-    def add(name, shape, pos, size, color, collide=True, yaw=0.0):
+    geoms, picks, places, items, names = [], [], [], [], set()
+    def add(name, shape, pos, size, color, collide=True, yaw=0.0, mesh=None):
         if name in names: raise SceneError(f'duplicate name {name!r}')
         names.add(name)
         rgba = COLORS.get(color, color) if isinstance(color, str) else color
         if not (isinstance(rgba, (list, tuple)) and len(rgba) == 4): raise SceneError(f'{name}: unknown color {color!r}; use one of {sorted(COLORS)} or [r,g,b,a]')
         if min(size) <= 0: raise SceneError(f'{name}: sizes must be positive, got {list(size)}')
-        geoms.append(dict(name=name, shape=shape, pos=np.asarray(pos, float), size=np.asarray(size, float), rgba=list(rgba), collide=collide, yaw=float(yaw)))
+        geoms.append(dict(name=name, shape=shape, pos=np.asarray(pos, float), size=np.asarray(size, float), rgba=list(rgba), collide=collide, yaw=float(yaw), mesh=mesh))
+    def walls(name, L, sx, sy, sz, rim, col, yaw):
+        add(f'{name}_bottom', 'box', L([0, 0, rim - sz + 0.01]), [sx, sy, 0.02], col, True, yaw)
+        for s in (-1, 1):
+            add(f'{name}_x{s}', 'box', L([s * sx / 2, 0, rim - sz / 2]), [0.016, sy, sz], col, True, yaw)
+            add(f'{name}_y{s}', 'box', L([0, s * sy / 2, rim - sz / 2]), [sx, 0.016, sz], col, True, yaw)
     for i, c in enumerate(sc['components']):
         t = c.get('type'); name = c.get('name', f'{t}{i}'); col = c.get('color', 'grey'); yaw = num(c.get('yaw', 0), env); R = _rot(yaw)
         try:
@@ -101,14 +115,23 @@ def resolve(sc, values=None):
                                               pick=L([x, inset, z]), pre=L([x, -pre_off, z]), support_z=o[2] + z0 + r * pitch + 0.006, top_z=o[2] + z0 + (r + 1) * pitch - 0.006))
             elif t == 'tote':
                 cx, cy = vec(c['center'], env, 2); rim = num(c['rim'], env); sx, sy, sz = vec(c.get('size', [0.6, 0.4, 0.32]), env)
-                L = lambda p: np.array([cx, cy, 0]) + R @ np.array(p)
-                add(f'{name}_bottom', 'box', L([0, 0, rim - sz + 0.01]), [sx, sy, 0.02], col, True, yaw)
-                for s in (-1, 1):
-                    add(f'{name}_x{s}', 'box', L([s * sx / 2, 0, rim - sz / 2]), [0.016, sy, sz], col, True, yaw)
-                    add(f'{name}_y{s}', 'box', L([0, s * sy / 2, rim - sz / 2]), [sx, 0.016, sz], col, True, yaw)
+                L = lambda p: np.array([cx, cy, 0]) + R @ np.array(p); walls(name, L, sx, sy, sz, rim, col, yaw)
                 if c.get('place', True):
                     places.append(dict(name=name, drop=np.array([cx, cy, rim + 0.08]), pre=np.array([cx, cy, rim + 0.20]), approach=np.array([0, 0, -1.0]),
                                        box=dict(center=[cx, cy], half=[sx / 2, sy / 2], rim=rim, depth=sz)))
+            elif t == 'asset':
+                # role: fixture (solid obstacle), container (open box and drop target), item (an object to pick, used by grasp)
+                meta = _asset(c['source']); ex = np.array(meta['extent']); role = c.get('role', 'fixture')
+                if role == 'item': items.append(dict(name=name, source=c['source'], meta=meta)); continue
+                p = vec(c['pos'], env); L = lambda q: p + R @ np.array(q)            # pos: floor point under the asset's centre
+                add(name, 'mesh', p, ex, col, False, yaw, mesh=meta['mesh'])
+                if role == 'fixture': add(f'{name}_solid', 'box', L([0, 0, ex[2] / 2]), ex, HIDDEN, True, yaw)
+                elif role == 'container':
+                    rim = p[2] + ex[2]; walls(f'{name}_wall', L, ex[0], ex[1], ex[2], ex[2], HIDDEN, yaw)
+                    if c.get('place', True):
+                        places.append(dict(name=name, drop=L([0, 0, ex[2] + 0.08]), pre=L([0, 0, ex[2] + 0.20]), approach=np.array([0, 0, -1.0]),
+                                           box=dict(center=list(p[:2]), half=list(ex[:2] / 2), rim=rim, depth=ex[2])))
+                else: raise SceneError(f'{name}: role must be fixture, container or item, got {role!r}')
             elif t == 'pick_point':
                 p = vec(c['pos'], env); a = vec(c.get('approach', [0, 0, -1]), env); a = a / np.linalg.norm(a)
                 picks.append(dict(name=name, approach=a, face=p - a * inset, pick=p, pre=p - a * (inset + pre_off), support_z=p[2] - 0.02, top_z=p[2] + 0.3))
@@ -116,7 +139,7 @@ def resolve(sc, values=None):
                 p = vec(c['pos'], env); a = vec(c.get('approach', [0, 0, -1]), env); a = a / np.linalg.norm(a)
                 places.append(dict(name=name, drop=p, pre=p - a * 0.12, approach=a, box=None))
             else:
-                raise SceneError(f'unknown component type {t!r}; available: box, cylinder, shelf_unit, tote, pick_point, place_point')
+                raise SceneError(f'unknown component type {t!r}; available: box, cylinder, shelf_unit, tote, pick_point, place_point, asset')
         except KeyError as e:
             raise SceneError(f'component {name!r} ({t}) is missing field {e}')
-    return dict(geoms=geoms, picks=picks, places=places, values=env)
+    return dict(geoms=geoms, picks=picks, places=places, items=items, values=env)

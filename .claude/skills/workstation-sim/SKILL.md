@@ -10,7 +10,7 @@ You do the reading: you look at the images and write `scene.json`. The code does
 ## 0. Get the code
 
 The steps below run from a checkout of the repo. If the current folder has no `ari_sim/` (for example when this skill came from the plugin), clone it, install it in a virtual environment with Python 3.10 or later, and work from there:
-`git clone https://github.com/ari-robotics/can-a-robot-do-it && cd can-a-robot-do-it && pip install -e . && ari-sim setup`
+`git clone https://github.com/ari-robotics/can-a-robot-do-it && cd can-a-robot-do-it && pip install -e ".[simready]" && ari-sim setup`
 
 ## 1. Look, then ask only what the images cannot tell you
 
@@ -27,6 +27,19 @@ Follow `SCENE_RULES` in `ari_sim/perceive.py` exactly (frame, scale references, 
 - Every estimated dimension that affects reach is a param with a `sigma`. 10–20 % of the value is normal from one photo.
 - Model what constrains a robot; leave out the rest. What a robot cell would remove goes in `assumptions`.
 - `robot.base_search` is where a base could physically stand.
+
+## 2b. Use real objects where the catalog has them
+
+The NVIDIA SimReady catalog holds 2,677 real objects (crates, bins, workbenches, conveyors, pallets, hand tools, boxes, parts) with true dimensions, mass and friction. Use it for what the photos show and the parametric components would only approximate. Never bulk-download: each step below costs only what it fetches.
+
+1. `ari-sim assets search <a few words>` for each object that matters (the drop container, a workbench, the items picked). Use the catalog's words: `ari-sim assets categories` lists them (`crate`, `bin`, `handTool`, `box`, `pallet`, `furniture`...). Each hit shows its download size.
+2. `ari-sim assets show <name>` for the two or three best hits, then open the thumbnail and compare it with the photos: same kind of object, same proportions, same openings. Pick by eye, not by name.
+3. `ari-sim assets get <name>` for the one you chose. Read its `extent` against your estimate from the photos: if they disagree by more than your sigma, either the asset is the wrong one or your estimate is, say which. Read `warnings`: catalog data is sometimes wrong (a 36 cm item declared at 9 g); do not use an asset with a warning for mass-sensitive decisions.
+4. Add it as an `asset` component (fixture, container or item). Its dimensions are now known; only its position stays a param with a sigma.
+
+For robots, `ari-sim robots list` gives the arms with reach and payload; put the ones that fit the task in `robot.candidates`. Models are fetched on first use.
+
+Say in the report which catalog assets you used, with their attribution line (CC-BY 4.0).
 
 ## 3. Check it against the photos
 

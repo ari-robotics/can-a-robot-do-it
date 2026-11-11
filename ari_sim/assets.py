@@ -22,14 +22,23 @@ def _checkout(dest, commit, dirs):
     with open(sc, 'w') as f: f.write('\n'.join(sorted(lines | {f'/{d}/' for d in dirs})) + '\n')
     _run(['git', 'checkout', '-q', commit] if fresh else ['git', 'sparse-checkout', 'reapply'], cwd=dest)
 
-def setup(n_objects=110, seed=3):
-    """Download the robot and gripper models this code uses from MuJoCo Menagerie, and a random subset of Google Scanned Objects (MJCF, CC-BY 4.0)."""
-    from .robots import ROBOTS, GRIPPER_XML
+def fetch_robots(robots, gripper=True):
+    """Make sure these catalog robots (and the gripper) are on disk; downloads only the missing model folders."""
+    from .robots import ROBOTS, GRIPPER_XML, menagerie_dir
+    unknown = [r for r in robots if r not in ROBOTS]
+    if unknown: raise KeyError(f'unknown robot(s) {unknown}; available: {sorted(ROBOTS)}')
+    dirs = {menagerie_dir(r) for r in robots} | ({GRIPPER_XML.split('/')[0]} if gripper else set())
+    missing = sorted(d for d in dirs if not os.path.isdir(os.path.join(MENAGERIE, d)))
+    if not missing: return []
     os.makedirs(HOME, exist_ok=True)
-    dirs = sorted({r['xml'].split('/')[0] for r in ROBOTS.values()} | {GRIPPER_XML.split('/')[0]})
     if not os.path.isdir(os.path.join(MENAGERIE, '.git')): _fetch('https://github.com/google-deepmind/mujoco_menagerie.git', MENAGERIE_COMMIT, MENAGERIE)
-    missing = [d for d in dirs if not os.path.isdir(os.path.join(MENAGERIE, d))]
-    if missing: _checkout(MENAGERIE, MENAGERIE_COMMIT, missing)
+    _checkout(MENAGERIE, MENAGERIE_COMMIT, missing); return missing
+
+def setup(n_objects=110, seed=3):
+    """Download the default robots and the gripper from MuJoCo Menagerie, and a random subset of Google Scanned Objects (MJCF, CC-BY 4.0).
+    Other robots of the catalog are fetched when a scene asks for them."""
+    from .robots import DEFAULT_CANDIDATES
+    os.makedirs(HOME, exist_ok=True); fetch_robots(DEFAULT_CANDIDATES)
     if n_objects and not os.path.isdir(os.path.join(GSO, 'models')):
         _fetch('https://github.com/kevinzakka/mujoco_scanned_objects.git', GSO_COMMIT, GSO)
         names = subprocess.run(['git', 'ls-tree', '--name-only', f'{GSO_COMMIT}:models'], cwd=GSO, capture_output=True, text=True, check=True).stdout.split()

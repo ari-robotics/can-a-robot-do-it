@@ -3,7 +3,7 @@ import time, numpy as np
 from . import spec as S
 from .build import build, set_base
 from .kin import Kin, move_time
-from .robots import ROBOTS
+from .robots import ROBOTS, DEFAULT_CANDIDATES
 
 def _evaluate(kin, resolved, robot, tool_len):
     """Per pick target: 'ok' | 'out_of_reach' | 'collision' (needs pre-pose and pick pose). Plus the place status."""
@@ -29,7 +29,7 @@ def diagnose(sc, n_variants=40, seed=1, log=print):
     rng = np.random.default_rng(seed); rob = sc.get('robot', {}); tool = rob.get('tool', dict(type='suction_wand', length=0.38))
     tool_len = float(tool.get('length', 0.38)); bs = rob.get('base_search')
     if not bs: raise S.SceneError('scene["robot"]["base_search"] is required: {"x": [lo, hi, n], "y": [lo, hi, n], "pedestal": [lo, hi, n]}')
-    XS, YS, ZS = _grid(bs['x']), _grid(bs['y']), _grid(bs['pedestal']); cands = rob.get('candidates', list(ROBOTS))
+    XS, YS, ZS = _grid(bs['x']), _grid(bs['y']), _grid(bs['pedestal']); cands = rob.get('candidates', DEFAULT_CANDIDATES)
     R0 = S.resolve(sc); n = len(R0['picks']); t0 = time.time()
     if n == 0: raise S.SceneError('scene has no pick target (shelf_unit with "pick": true, or pick_point)')
     # 1. every robot at every base position, nominal geometry

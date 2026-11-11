@@ -19,6 +19,7 @@ Homepage = "https://github.com/ari-robotics/can-a-robot-do-it"
 Organization = "https://arirobotics.ch"
 
 [project.optional-dependencies]
+simready = ["usd-core"]
 dev = ["pytest"]
 
 [project.scripts]

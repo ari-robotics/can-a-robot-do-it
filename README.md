@@ -86,6 +86,18 @@ The agent asks only what the photos cannot tell it, checks its reconstruction ag
 3. **Quantify the doubt.** A photo gives geometry to within 10–20 %. The scene is re-simulated on dozens of plausible variants, so the report says how often the layout holds and which dimensions matter most.
 4. **Grasp (experimental).** A Robotiq 2F-85 replaces the suction tool, scanned real-world objects are dropped into the pick cells, and a scripted expert runs with contact physics. Episodes are recorded (image, joints, action) as raw material for imitation learning.
 
+## Real objects, fetched one at a time
+
+The agent does not rebuild everything from boxes. When the photos show a crate, a workbench or a tool that exists in the [NVIDIA SimReady](https://huggingface.co/datasets/nvidia/simready-assets) catalog (2,677 objects, 490 GB), it uses the real one, with its true dimensions, mass and friction, and downloads only that.
+
+```
+  ● ari-sim assets search plastic crate     →  names + download size, nothing fetched yet
+  ● ari-sim assets show crate_blue_a01      →  a thumbnail the agent compares with your photos
+  ● ari-sim assets get crate_blue_a01       →  3.6 MB of geometry and physics, converted for MuJoCo
+```
+
+Only geometry and physics layers are fetched, never textures: a screwdriver is 2 MB instead of 91 MB. Arms come the same way from [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie): `ari-sim robots list` shows what fits, and a model is downloaded the first time a scene asks for it.
+
 ## Results on a real station
 
 A goods-to-person pick station rebuilt from three phone photos: 32 shelf cells, one tote.
@@ -106,7 +118,8 @@ Physics grasping baseline, 300 episodes over 31 scanned objects with a parallel 
 - **Cycle times are ceilings.** Joint speed limits, no payload, no safety-rated speed reduction.
 - **Geometry is primitives.** Boxes and cylinders are enough for reach and clearance, not for fine contact with the workstation itself.
 - **Validated on one station so far.** The next step is ten stations with tape-measured dimensions, to report the real error per dimension.
-- **Three arms today** (UR5e, UR10e, Fanuc CRX-5iA). Adding any arm from MuJoCo Menagerie is one line in [`ari_sim/robots.py`](ari_sim/robots.py).
+- **Four six-axis arms today** (UR5e, UR10e, Fanuc CRX-5iA, UFactory Lite 6). Adding a six-axis arm from MuJoCo Menagerie is one line in [`ari_sim/robots.py`](ari_sim/robots.py); seven-axis arms need planner work.
+- **Catalog assets are as good as their data.** Dimensions are reliable; a few masses are not, and the agent is told to flag them.
 
 ## Roadmap
 
@@ -127,13 +140,15 @@ A scene is JSON. Numbers can be expressions over named params, which is what mak
 "components": [ {"type": "tote", "name": "tote", "center": ["-(open_w/2 + 0.16 + tote_dx)", "tote_y"], "rim": "tote_rim", "place": true} ]
 ```
 
-Components: `box`, `cylinder`, `shelf_unit` (every cell becomes a pick target), `tote` (drop target), `pick_point`, `place_point`. See [`ari_sim/spec.py`](ari_sim/spec.py) and the [example scene](examples/goods_to_person_station/scene.json). Expressions are parsed, never `eval`-ed.
+Components: `box`, `cylinder`, `shelf_unit` (every cell becomes a pick target), `tote` (drop target), `pick_point`, `place_point`, and `asset` (a SimReady object as a fixture, a container or an item to pick). See [`ari_sim/spec.py`](ari_sim/spec.py) and the [example scene](examples/goods_to_person_station/scene.json). Expressions are parsed, never `eval`-ed.
 
 What the agent runs, if you want to run it yourself:
 
 ```bash
-pip install -e .
-ari-sim setup                                   # robot models + scanned objects, in ~/.cache/ari_sim
+pip install -e ".[simready]"
+ari-sim setup                                   # default robot models + scanned objects, in ~/.cache/ari_sim
+ari-sim assets search crate                     # SimReady catalog: search, show, get
+ari-sim robots list                             # arms, reach, payload
 ari-sim check    runs/my-station/scene.json     # validate and render the scene
 ari-sim diagnose runs/my-station/scene.json --out runs/my-station/out
 ari-sim grasp    runs/my-station/scene.json --episodes 100   # experimental
@@ -154,4 +169,5 @@ Issues and pull requests are welcome, especially new arms, new component types, 
 Code under the [Apache License 2.0](LICENSE). Nothing below is vendored; setup downloads it.
 
 - [MuJoCo](https://mujoco.org) and the robot and gripper models of [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie) (per-model licences).
+- [NVIDIA SimReady assets](https://huggingface.co/datasets/nvidia/simready-assets), CC-BY 4.0, fetched one asset at a time.
 - [Google Scanned Objects](https://research.google/pubs/pub51437), MJCF conversion by [kevinzakka/mujoco_scanned_objects](https://github.com/kevinzakka/mujoco_scanned_objects), CC-BY 4.0.
