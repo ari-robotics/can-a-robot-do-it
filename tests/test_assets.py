@@ -6,21 +6,37 @@ EX = os.path.join(os.path.dirname(__file__), '..', 'examples', 'goods_to_person_
 
 NAMES = ['crate_blue_a01', 'crate_red_a19', 'bin_waste_a01', 'handTool_screwdriver_phillips_ph2_a01', 'furniture_workbench_standard_e01', 'food_apple_a01']
 
-def test_search_ranks_catalog_words_and_synonyms(monkeypatch):
+def test_name_fallback_ranks_catalog_words_and_synonyms(monkeypatch):
     monkeypatch.setattr(SR, 'names', lambda: NAMES)
     assert SR.tokens('handTool_screwdriver_phillips_ph2_a01') >= {'handtool', 'hand', 'tool', 'screwdriver', 'phillips'}
     assert 'a01' not in SR.tokens('crate_blue_a01')
-    assert SR.search('blue crate')[0] == 'crate_blue_a01'
-    assert SR.search('screwdriver') == ['handTool_screwdriver_phillips_ph2_a01']
-    assert set(SR.search('tote')) == {'crate_blue_a01', 'crate_red_a19', 'bin_waste_a01'}      # tote -> crate, bin
-    assert SR.search('bench')[0] == 'furniture_workbench_standard_e01'
-    assert SR.search('teapot') == []
+    assert SR.search_names('blue crate')[0] == 'crate_blue_a01'
+    assert set(SR.search_names('tote')) == {'crate_blue_a01', 'crate_red_a19', 'bin_waste_a01'}      # tote -> crate, bin
+    assert SR.search_names('teapot') == []
+
+def test_search_uses_the_api_and_falls_back_to_names(monkeypatch):
+    import io
+    hit = 'https://huggingface.co/datasets/FANUC-CORPORATION/SimReady-Assets/blob/' + 'a' * 40 + '/crx10ia/simready_usd/crx10ia.usd'
+    monkeypatch.setattr(SR, '_open', lambda url, timeout=60: io.BytesIO(json.dumps([dict(url=hit), dict(url=hit)]).encode()))
+    assert SR.search('fanuc arm') == [('FANUC-CORPORATION/SimReady-Assets/crx10ia/simready_usd/crx10ia.usd@' + 'a' * 40, 'central')]
+    def down(url, timeout=60): raise OSError('unreachable')
+    monkeypatch.setattr(SR, '_open', down); monkeypatch.setattr(SR, 'names', lambda: NAMES)
+    assert SR.search('blue crate')[0] == ('crate_blue_a01', 'names')
+
+def test_asset_ids():
+    rev = 'b' * 40
+    a = SR.parse(f'simready:Robotiq-Official/simready-assets/Robotiq_2F_85/simready_usd/Robotiq_2F_85.usda@{rev}')
+    assert (a['repo'], a['rev'], a['folder']) == ('Robotiq-Official/simready-assets', rev, 'Robotiq_2F_85')
+    assert SR.parse(f'https://huggingface.co/datasets/Robotiq-Official/simready-assets/blob/{rev}/Robotiq_2F_85/simready_usd/Robotiq_2F_85.usda')['id'] == a['id']
+    assert SR.parse('crate_blue_a01') == dict(repo=SR.REPO, rev=SR.REVISION, path=None, folder='crate_blue_a01', id='crate_blue_a01')
+    for bad in ('org/repo/x.usd@main', 'a/b'):
+        with pytest.raises(KeyError): SR.parse(bad)
 
 def test_download_skips_textures_and_thumbnails(monkeypatch):
     tree = [dict(path=f'crate_blue_a01/{p}', size=1) for p in ['simready_usd/sm_crate_blue_a01_01.usd', 'simready_usd/payloads/geometries.usd',
             'simready_usd/payloads/MuJoCo/enabled.usda', 'simready_usd/Textures/T_Albedo.png', 'simready_usd/source_assets/T_Normal.png',
-            'simready_usd/.thumbs/256x256/sm_crate_blue_a01_01.usd.png', 'com.nvidia.simready.packaging.json', '.metadata/LICENSE.txt']]
-    monkeypatch.setattr(SR, 'files', lambda name: tree)
+            'simready_usd/.thumbs/256x256/sm_crate_blue_a01_01.usd.png', 'simready_usd/materials/OmniPBR.mdl', 'com.nvidia.simready.packaging.json', '.metadata/LICENSE.txt']]
+    monkeypatch.setattr(SR, 'files', lambda ref: tree)
     got = {f['path'].split('/', 1)[1] for f in SR._wanted('crate_blue_a01')}
     assert got == {'simready_usd/sm_crate_blue_a01_01.usd', 'simready_usd/payloads/geometries.usd', 'simready_usd/payloads/MuJoCo/enabled.usda', 'com.nvidia.simready.packaging.json'}
 
@@ -61,9 +77,18 @@ def test_asset_mesh_compiles(fake_assets):
     m, d, info = build('UR10e', S.resolve(S.load(sc)))
     assert m.geom('env_crate').contype == 0 and m.nmesh >= 1
 
-def test_robot_catalog():
+def test_robot_catalog_and_scene_robots():
+    from ari_sim.robots import register
     assert set(DEFAULT_CANDIDATES) <= set(ROBOTS)
     for k, r in ROBOTS.items():
-        assert {'xml', 'base', 'tip', 'reach', 'payload', 'vmax'} <= set(r) and len(r['vmax']) == 6, k
-        assert menagerie_dir(k) == r['xml'].split('/')[0]
+        assert {'reach', 'payload', 'vmax'} <= set(r) and len(r['vmax']) == 6, k
+        assert ('xml' in r and {'base', 'tip'} <= set(r) and menagerie_dir(k) == r['xml'].split('/')[0]) or ('simready' in r and 'datasheet' in r), k
+    arm = dict(name='Test arm', source='simready:FANUC-CORPORATION/SimReady-Assets/crx10ia_l/simready_usd/crx10ia_l.usd@' + 'c' * 40,
+               reach=1.418, payload=10, vmax_deg=[120] * 6, datasheet='https://example.com/datasheet')
+    assert register(arm) == 'Test arm' and ROBOTS['Test arm']['vmax'][0] == pytest.approx(np.radians(120))
+    assert register('UR10e') == 'UR10e'
+    with pytest.raises(KeyError): register(dict(arm, datasheet=None) | {'vmax_deg': [120] * 7})
+    with pytest.raises(KeyError): register({k: v for k, v in arm.items() if k != 'datasheet'})
+    with pytest.raises(KeyError): register('R2-D2')
     with pytest.raises(KeyError): assets.fetch_robots(['R2-D2'])
+    ROBOTS.pop('Test arm')

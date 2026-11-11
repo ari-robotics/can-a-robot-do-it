@@ -12,32 +12,43 @@ def main(argv=None):
     g.add_argument('scene'); g.add_argument('--episodes', type=int, default=20); g.add_argument('--out', default='out/episodes'); g.add_argument('--seed', type=int, default=0)
     g.add_argument('--base', nargs=3, type=float, metavar=('X', 'Y', 'PEDESTAL'), help='robot base; default: best_fixed from <scene dir>/out/diagnostic.json')
     ac = sub.add_parser('assets', help='find and fetch real objects from the NVIDIA SimReady catalog, one at a time').add_subparsers(dest='acmd', required=True)
-    q = ac.add_parser('search', help='rank catalog names against a few words'); q.add_argument('query', nargs='+'); q.add_argument('-n', type=int, default=10)
-    ac.add_parser('categories', help='catalog categories and how many assets each holds')
-    v = ac.add_parser('show', help='download one asset\'s thumbnail, to compare with the photos'); v.add_argument('name')
-    t = ac.add_parser('get', help='download one asset\'s geometry and physics and convert it for MuJoCo'); t.add_argument('name'); t.add_argument('--max-mb', type=float, default=200)
-    rc = sub.add_parser('robots', help='robot arms available, and fetching their models').add_subparsers(dest='rcmd', required=True)
-    rc.add_parser('list', help='arms with reach, payload and whether the model is on disk')
-    r = rc.add_parser('get', help='download these arms\' models from MuJoCo Menagerie'); r.add_argument('names', nargs='+')
+    q = ac.add_parser('search', help='natural-language search over all SimReady datasets, robots included'); q.add_argument('query', nargs='+'); q.add_argument('-n', type=int, default=8)
+    v = ac.add_parser('show', help='download one asset\'s thumbnail (a few kB), to compare with the photos'); v.add_argument('id')
+    t = ac.add_parser('get', help='download one object\'s geometry and physics and import it into MuJoCo'); t.add_argument('id'); t.add_argument('--max-mb', type=float, default=200)
+    rc = sub.add_parser('robots', help='robot arms: presets, and checking a SimReady arm before using it').add_subparsers(dest='rcmd', required=True)
+    rc.add_parser('list', help='preset arms with reach, payload and where the model comes from')
+    r = rc.add_parser('get', help='download these presets\' models'); r.add_argument('names', nargs='+')
+    ri = rc.add_parser('inspect', help='import a SimReady arm and show its joints, limits and flange'); ri.add_argument('id')
     a = ap.parse_args(argv)
     if a.cmd == 'setup':
         from . import assets; print('assets in', assets.setup(a.objects)); return
     if a.cmd == 'assets':
         from . import simready as SR
-        if a.acmd == 'categories': print('\n'.join(f'{k:24s}{v}' for k, v in SR.categories())); return
         if a.acmd == 'search':
             hits = SR.search(' '.join(a.query), a.n)
-            if not hits: print('no match; try the catalog\'s own words (`ari-sim assets categories`)'); return
-            for h in hits: print(f'{h:56s}{SR.download_mb(h):8.1f} MB')
+            if not hits: print('no match'); return
+            if hits[0][1] == 'names': print('(search API unreachable: matching names in nvidia/simready-assets instead)')
+            for h, _ in hits: print(f'{SR.download_mb(h):7.1f} MB  {h}')
             return
-        if a.acmd == 'show': print(SR.thumbnail(a.name)); return
-        m = SR.get(a.name, a.max_mb); print(json.dumps({k: m[k] for k in ('name', 'extent', 'mass', 'mass_source', 'friction', 'triangles', 'warnings', 'attribution')}, indent=1)); return
+        if a.acmd == 'show': print(SR.thumbnail(a.id)); return
+        m = SR.get(a.id, a.max_mb); print(json.dumps({k: m[k] for k in ('id', 'extent', 'mass', 'friction', 'triangles', 'warnings', 'attribution')}, indent=1)); return
     if a.cmd == 'robots':
         from . import assets; from .robots import ROBOTS, DEFAULT_CANDIDATES, menagerie_dir
-        if a.rcmd == 'get': print('fetched:', assets.fetch_robots(a.names, gripper=False) or 'nothing, already on disk'); return
+        if a.rcmd == 'get':
+            from . import simready as SR
+            for k in a.names:
+                if 'simready' in ROBOTS.get(k, {}): SR.fetch(ROBOTS[k]['simready'])
+            assets.fetch_robots(a.names, gripper=False); print('ready:', ', '.join(a.names)); return
+        if a.rcmd == 'inspect':
+            import numpy as np; from . import simready as SR
+            s, base, tip, hinges = SR.robot(a.id); m = s.compile(); st = m.site('attachment_site')
+            print(f'{len(hinges)} hinge joints{"" if len(hinges) == 6 else "  (the planner needs exactly 6)"}; base {base}; flange on {tip}')
+            for j in hinges: print(f'  {j.split("/")[-1]:24s} limits {np.degrees(m.joint(j).range).round(1).tolist()} deg')
+            print(f'mass {m.body_mass.sum():.1f} kg; flange at {np.round(m.site_pos[st.id], 3).tolist()} from {tip.split("/")[-1]}')
+            print('joint speeds, reach and payload are not in the file: take them from the datasheet (see robots.register)'); return
         for k, R in ROBOTS.items():
-            on = os.path.isdir(os.path.join(assets.MENAGERIE, menagerie_dir(k)))
-            print(f"{k:10s} reach {R['reach']:.2f} m  payload {R['payload']:4.1f} kg  {'on disk' if on else 'fetched on first use'}{'  (default)' if k in DEFAULT_CANDIDATES else ''}")
+            src = f"Menagerie {menagerie_dir(k)}" if 'xml' in R else 'SimReady ' + R['simready'].split('/')[0]
+            print(f"{k:10s} reach {R['reach']:.2f} m  payload {R['payload']:4.1f} kg  {src}{'  (default)' if k in DEFAULT_CANDIDATES else ''}")
         return
     from . import spec as S
     sc = S.load(a.scene)

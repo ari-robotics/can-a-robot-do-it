@@ -27,7 +27,7 @@ Every dimension that matters to reach and that you had to estimate goes in "para
 - {"type":"tote","name","center":[x,y],"rim": rim height,"size":[sx,sy,sz],"color","place":true} — an open box; with "place": true it is the drop target (approached from above).
 - {"type":"pick_point","name","pos":[x,y,z],"approach":[ax,ay,az]} — a single pick location, e.g. a part on a table (approach [0,0,-1]).
 - {"type":"place_point","name","pos":[x,y,z],"approach":[ax,ay,az]}
-- {"type":"asset","name","source":"simready:<catalog name>","role":"fixture|container|item","pos":[x,y,z] floor point under its centre,"yaw":deg,"color"}
+- {"type":"asset","name","source":"simready:<asset id from `ari-sim assets search`>","role":"fixture|container|item","pos":[x,y,z] floor point under its centre,"yaw":deg,"color"}
   a real object from the NVIDIA SimReady catalog, with its true dimensions. fixture: a solid obstacle (workbench, cabinet). container: an open box that
   becomes the drop target when "place": true (crate, bin). item: an object that is picked; no pos, it is placed in the pick cells by the grasp simulation.
   Use one only when the catalog holds the same kind of object at the right size; otherwise keep the parametric components.
@@ -36,7 +36,7 @@ Model only what constrains a robot: surfaces, containers, structure, and obstacl
 
 ## Task and robot
 "task": {"description", "pick_inset": how far past the opening the tool goes (m), "pre_offset": stand-off before entering (m)}.
-"robot": {"candidates": names from `ari-sim robots list` that suit the payload and reach (default ["UR5e","UR10e","CRX-5iA"]), "tool": {"type":"suction_wand","length":0.38}, "base_search": {"x":[lo,hi,n],"y":[lo,hi,n],"pedestal":[lo,hi,n]}, "observation_camera": {"pos","target","fovy"}}
+"robot": {"candidates": preset names from `ari-sim robots list` that suit the payload and reach (default ["UR5e","UR10e","CRX-5iA"]), or a SimReady arm as {"name","source":"simready:<id>","reach","payload","vmax_deg":[6 values],"datasheet":url}, "tool": {"type":"suction_wand","length":0.38}, "base_search": {"x":[lo,hi,n],"y":[lo,hi,n],"pedestal":[lo,hi,n]}, "observation_camera": {"pos","target","fovy"}}
 base_search is the floor region where a robot base could physically stand (usually where the operator stands) and the pedestal heights to try.
 
 ## Honesty

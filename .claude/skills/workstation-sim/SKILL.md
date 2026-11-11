@@ -9,7 +9,7 @@ You do the reading: you look at the images and write `scene.json`. The code does
 
 ## 0. Get the code
 
-The steps below run from a checkout of the repo. If the current folder has no `ari_sim/` (for example when this skill came from the plugin), clone it, install it in a virtual environment with Python 3.10 or later, and work from there:
+The steps below run from a checkout of the repo. If the current folder has no `ari_sim/` (for example when this skill came from the plugin), clone it, install it in a virtual environment with Python 3.11 or later (MuJoCo 4 needs it), and work from there:
 `git clone https://github.com/ari-robotics/can-a-robot-do-it && cd can-a-robot-do-it && pip install -e ".[simready]" && ari-sim setup`
 
 ## 1. Look, then ask only what the images cannot tell you
@@ -28,18 +28,18 @@ Follow `SCENE_RULES` in `ari_sim/perceive.py` exactly (frame, scale references, 
 - Model what constrains a robot; leave out the rest. What a robot cell would remove goes in `assumptions`.
 - `robot.base_search` is where a base could physically stand.
 
-## 2b. Use real objects where the catalog has them
+## 2b. Use real objects and real robots where SimReady has them
 
-The NVIDIA SimReady catalog holds 2,677 real objects (crates, bins, workbenches, conveyors, pallets, hand tools, boxes, parts) with true dimensions, mass and friction. Use it for what the photos show and the parametric components would only approximate. Never bulk-download: each step below costs only what it fetches.
+[SimReady Central](https://huggingface.co/spaces/nvidia/simready-central) indexes every SimReady dataset on Hugging Face: thousands of real objects (crates, bins, workbenches, conveyors, pallets, tools, parts) and robot arms and grippers published by their manufacturers (FANUC, Universal Robots, Franka, Comau, Robotiq, OnRobot...), with true dimensions and physics. Use it for what the photos show and the parametric components would only approximate. Never bulk-download: each step costs only what it fetches.
 
-1. `ari-sim assets search <a few words>` for each object that matters (the drop container, a workbench, the items picked). Use the catalog's words: `ari-sim assets categories` lists them (`crate`, `bin`, `handTool`, `box`, `pallet`, `furniture`...). Each hit shows its download size.
-2. `ari-sim assets show <name>` for the two or three best hits, then open the thumbnail and compare it with the photos: same kind of object, same proportions, same openings. Pick by eye, not by name.
-3. `ari-sim assets get <name>` for the one you chose. Read its `extent` against your estimate from the photos: if they disagree by more than your sigma, either the asset is the wrong one or your estimate is, say which. Read `warnings`: catalog data is sometimes wrong (a 36 cm item declared at 9 g); do not use an asset with a warning for mass-sensitive decisions.
-4. Add it as an `asset` component (fixture, container or item). Its dimensions are now known; only its position stays a param with a sigma.
+1. `ari-sim assets search <plain words>` for each object that matters (the drop container, a workbench, the items picked). The search understands descriptions ("plastic crate 600x400", "fanuc collaborative arm"). Each hit is an asset id with its download size.
+2. `ari-sim assets show <id>` for the two or three best hits, then open the thumbnail and compare it with the photos: same kind of object, same proportions, same openings. Pick by eye, not by name.
+3. `ari-sim assets get <id>` for the object you chose. Compare its `extent` with your estimate from the photos: if they disagree by more than your sigma, either the asset is the wrong one or your estimate is; say which. Read `warnings` and do not rely on a flagged mass.
+4. Add it as an `asset` component with `"source": "simready:<id>"` (fixture, container or item). Its dimensions are now known; only its position stays a param with a sigma.
 
-For robots, `ari-sim robots list` gives the arms with reach and payload; put the ones that fit the task in `robot.candidates`. Models are fetched on first use.
+Robots. `ari-sim robots list` shows the presets (reach, payload, joint speeds from datasheets). To try another arm, find it with `ari-sim assets search`, check it with `ari-sim robots inspect <id>` (it must have six joints and a flange), then add it to `robot.candidates` as `{"name", "source": "simready:<id>", "reach", "payload", "vmax_deg": [six joint speeds in deg/s], "datasheet": "<url>"}`. The robot file carries joint limits but not speeds, reach or payload: take them from the manufacturer's datasheet and cite it. If you cannot find the speeds, do not guess; say the arm could not be timed.
 
-Say in the report which catalog assets you used, with their attribution line (CC-BY 4.0).
+Say in the report which SimReady assets you used, with their attribution line.
 
 ## 3. Check it against the photos
 

@@ -7,8 +7,8 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-D97757)](#install)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-SKILL.md-555)](.claude/skills/workstation-sim/SKILL.md)
-[![Simulation: MuJoCo](https://img.shields.io/badge/simulation-MuJoCo-2F6EBA)](https://mujoco.org)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB)](pyproject.toml)
+[![Simulation: MuJoCo 4](https://img.shields.io/badge/simulation-MuJoCo%204-2F6EBA)](https://mujoco.org)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB)](pyproject.toml)
 
 [Install](#install) · [What you get](#what-you-get) · [How it works](#how-it-works) · [Results](#results-on-a-real-station) · [Limits](#what-it-does-not-do)
 
@@ -86,17 +86,18 @@ The agent asks only what the photos cannot tell it, checks its reconstruction ag
 3. **Quantify the doubt.** A photo gives geometry to within 10–20 %. The scene is re-simulated on dozens of plausible variants, so the report says how often the layout holds and which dimensions matter most.
 4. **Grasp (experimental).** A Robotiq 2F-85 replaces the suction tool, scanned real-world objects are dropped into the pick cells, and a scripted expert runs with contact physics. Episodes are recorded (image, joints, action) as raw material for imitation learning.
 
-## Real objects, fetched one at a time
+## Real objects and real robots, fetched one at a time
 
-The agent does not rebuild everything from boxes. When the photos show a crate, a workbench or a tool that exists in the [NVIDIA SimReady](https://huggingface.co/datasets/nvidia/simready-assets) catalog (2,677 objects, 490 GB), it uses the real one, with its true dimensions, mass and friction, and downloads only that.
+The agent does not rebuild everything from boxes. [SimReady Central](https://huggingface.co/spaces/nvidia/simready-central) indexes thousands of simulation-ready objects and the robot arms and grippers their manufacturers publish (FANUC, Universal Robots, Franka, Comau, Robotiq, OnRobot...). When the photos show one of them, the agent finds it, checks it by eye, and downloads only that.
 
 ```
-  ● ari-sim assets search plastic crate     →  names + download size, nothing fetched yet
-  ● ari-sim assets show crate_blue_a01      →  a thumbnail the agent compares with your photos
-  ● ari-sim assets get crate_blue_a01       →  3.6 MB of geometry and physics, converted for MuJoCo
+  ● ari-sim assets search plastic crate 600x400   →  asset ids + download size, nothing fetched yet
+  ● ari-sim assets show <id>                      →  a 4 kB thumbnail the agent compares with your photos
+  ● ari-sim assets get <id>                       →  3.6 MB of geometry and physics, real mass and friction
+  ● ari-sim robots inspect <id>                   →  a manufacturer's arm: joints, limits, flange
 ```
 
-Only geometry and physics layers are fetched, never textures: a screwdriver is 2 MB instead of 91 MB. Arms come the same way from [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie): `ari-sim robots list` shows what fits, and a model is downloaded the first time a scene asks for it.
+Only geometry and physics layers are fetched, never textures: a screwdriver is 2 MB instead of 91 MB. Files are read by [MuJoCo 4](https://github.com/google-deepmind/mujoco/releases)'s own OpenUSD importer. A FANUC CRX-5iA read this way matches the MuJoCo Menagerie model to within a micrometre at the tool flange. Joint speeds, reach and payload are not in the files: they come from datasheets, cited in the scene.
 
 ## Results on a real station
 
@@ -118,8 +119,8 @@ Physics grasping baseline, 300 episodes over 31 scanned objects with a parallel 
 - **Cycle times are ceilings.** Joint speed limits, no payload, no safety-rated speed reduction.
 - **Geometry is primitives.** Boxes and cylinders are enough for reach and clearance, not for fine contact with the workstation itself.
 - **Validated on one station so far.** The next step is ten stations with tape-measured dimensions, to report the real error per dimension.
-- **Four six-axis arms today** (UR5e, UR10e, Fanuc CRX-5iA, UFactory Lite 6). Adding a six-axis arm from MuJoCo Menagerie is one line in [`ari_sim/robots.py`](ari_sim/robots.py); seven-axis arms need planner work.
-- **Catalog assets are as good as their data.** Dimensions are reliable; a few masses are not, and the agent is told to flag them.
+- **Six-axis arms only.** Five presets (UR5e, UR10e, FANUC CRX-5iA and CRX-10iA, UFactory Lite 6), and any six-axis SimReady arm whose datasheet gives its joint speeds. Seven-axis arms (Franka, KUKA iiwa) need planner work.
+- **Catalog assets are as good as their data.** Masses that look implausible for the size are flagged for a person to check.
 
 ## Roadmap
 
@@ -145,10 +146,10 @@ Components: `box`, `cylinder`, `shelf_unit` (every cell becomes a pick target), 
 What the agent runs, if you want to run it yourself:
 
 ```bash
-pip install -e ".[simready]"
+pip install -e ".[simready]"                    # MuJoCo 4 with its OpenUSD importer
 ari-sim setup                                   # default robot models + scanned objects, in ~/.cache/ari_sim
-ari-sim assets search crate                     # SimReady catalog: search, show, get
-ari-sim robots list                             # arms, reach, payload
+ari-sim assets search plastic crate             # SimReady: search, show, get
+ari-sim robots list                             # preset arms; `robots inspect <id>` for a SimReady one
 ari-sim check    runs/my-station/scene.json     # validate and render the scene
 ari-sim diagnose runs/my-station/scene.json --out runs/my-station/out
 ari-sim grasp    runs/my-station/scene.json --episodes 100   # experimental
@@ -169,5 +170,5 @@ Issues and pull requests are welcome, especially new arms, new component types, 
 Code under the [Apache License 2.0](LICENSE). Nothing below is vendored; setup downloads it.
 
 - [MuJoCo](https://mujoco.org) and the robot and gripper models of [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie) (per-model licences).
-- [NVIDIA SimReady assets](https://huggingface.co/datasets/nvidia/simready-assets), CC-BY 4.0, fetched one asset at a time.
+- [NVIDIA SimReady](https://huggingface.co/spaces/nvidia/simready-central) assets and manufacturers' robot models, fetched one at a time under each dataset's licence (CC-BY 4.0 for nvidia/simready-assets, Apache-2.0 for the FANUC arms).
 - [Google Scanned Objects](https://research.google/pubs/pub51437), MJCF conversion by [kevinzakka/mujoco_scanned_objects](https://github.com/kevinzakka/mujoco_scanned_objects), CC-BY 4.0.

@@ -27,7 +27,7 @@ def fetch_robots(robots, gripper=True):
     from .robots import ROBOTS, GRIPPER_XML, menagerie_dir
     unknown = [r for r in robots if r not in ROBOTS]
     if unknown: raise KeyError(f'unknown robot(s) {unknown}; available: {sorted(ROBOTS)}')
-    dirs = {menagerie_dir(r) for r in robots} | ({GRIPPER_XML.split('/')[0]} if gripper else set())
+    dirs = {menagerie_dir(r) for r in robots if menagerie_dir(r)} | ({GRIPPER_XML.split('/')[0]} if gripper else set())   # SimReady arms: simready.robot
     missing = sorted(d for d in dirs if not os.path.isdir(os.path.join(MENAGERIE, d)))
     if not missing: return []
     os.makedirs(HOME, exist_ok=True)

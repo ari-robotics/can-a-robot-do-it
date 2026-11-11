@@ -8,9 +8,11 @@ def build(robot, resolved, tool=None, objects=(), camera=None):
     """tool: {"type": "suction_wand", "length": 0.38} (kinematic only) or {"type": "gripper_2f85"} (physics grasping).
     objects: scanned objects (GSO names) or SimReady assets ("simready:<name>") to add as free bodies, parked off-scene until placed."""
     tool = tool or dict(type='suction_wand', length=0.38); R = ROBOTS[robot]
-    xml = os.path.join(assets.MENAGERIE, R['xml'])
-    assets.fetch_robots([robot], gripper=tool['type'] == 'gripper_2f85')          # downloads the model folder only if it is missing
-    spec = mujoco.MjSpec.from_file(xml); wb = spec.worldbody
+    assets.fetch_robots([robot], gripper=tool['type'] == 'gripper_2f85')          # downloads what is missing, nothing else
+    if 'simready' in R:
+        from . import simready; spec, base, tip, _ = simready.robot(R['simready'])
+    else: spec = mujoco.MjSpec.from_file(os.path.join(assets.MENAGERIE, R['xml'])); base, tip = R['base'], R['tip']
+    wb = spec.worldbody
     fl = wb.add_geom(); fl.name = 'env_floor'; fl.type = mujoco.mjtGeom.mjGEOM_PLANE; fl.size = [8, 8, 0.1]; fl.rgba = [0.80, 0.80, 0.77, 1]
     l = wb.add_light(); l.pos = [1.5, -3.0, 5]; l.dir = [-0.25, 0.5, -1]; l.diffuse = [0.55, 0.55, 0.55]; l.type = mujoco.mjtLightType.mjLIGHT_DIRECTIONAL
     l2 = wb.add_light(); l2.pos = [-2.5, -2, 4]; l2.dir = [0.5, 0.4, -1]; l2.diffuse = [0.25, 0.25, 0.25]; l2.castshadow = False; l2.type = mujoco.mjtLightType.mjLIGHT_DIRECTIONAL
@@ -30,7 +32,7 @@ def build(robot, resolved, tool=None, objects=(), camera=None):
     pg = ped.add_geom(); pg.name = 'ped_geom'; pg.type = mujoco.mjtGeom.mjGEOM_BOX; pg.size = [0.11, 0.11, 0.5]; pg.rgba = [0.2, 0.2, 0.22, 1]; pg.contype = 0; pg.conaffinity = 0
     it = wb.add_body(); it.name = 'item'; it.mocap = True; it.pos = [0, 0, -1]
     ig = it.add_geom(); ig.type = mujoco.mjtGeom.mjGEOM_BOX; ig.size = [0.06, 0.045, 0.03]; ig.rgba = [0.75, 0.55, 0.35, 1]; ig.contype = 0; ig.conaffinity = 0
-    tipb = spec.body(R['tip']); st = spec.site('attachment_site'); gripper = tool['type'] == 'gripper_2f85'
+    tipb = spec.body(tip); st = spec.site('attachment_site'); gripper = tool['type'] == 'gripper_2f85'
     if gripper:
         for k in list(spec.keys): spec.delete(k)
         gs = mujoco.MjSpec.from_file(os.path.join(assets.MENAGERIE, GRIPPER_XML))
@@ -60,7 +62,7 @@ def build(robot, resolved, tool=None, objects=(), camera=None):
         rt = np.cross(f, [0, 0, 1]); rt /= np.linalg.norm(rt); up = np.cross(rt, f)
         cm = wb.add_camera(); cm.name = 'station_cam'; cm.pos = cp; cm.fovy = camera.get('fovy', 60)
         cq = np.zeros(4); mujoco.mju_mat2Quat(cq, np.column_stack([rt, up, -f]).flatten()); cm.quat = cq
-    m = spec.compile(); d = mujoco.MjData(m); bid = m.body(R['base']).id
+    m = spec.compile(); d = mujoco.MjData(m); bid = m.body(base).id
     info = dict(robot=robot, base_id=bid, tip_site=m.site('g_pinch' if gripper else 'tip').id, ped=m.body('pedestal').mocapid[0], ped_geom=m.geom('ped_geom').id,
                 item=m.body('item').mocapid[0], base_pos0=m.body_pos[bid].copy(), env={i for i in range(m.ngeom) if m.geom(i).name.startswith('env_')},
                 objects=[m.body(f'o{i}_model').id for i in range(len(objects))] if gripper else [], tool=tool)

@@ -11,15 +11,15 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "ARI — Applied Robotics Institute" }]
 keywords = ["robotics", "mujoco", "robot-simulation", "cobot", "workcell", "feasibility", "claude-code"]
-requires-python = ">=3.10"
-dependencies = ["mujoco>=3.3", "numpy", "pillow"]
+requires-python = ">=3.11"
+dependencies = ["mujoco>=4.0", "numpy", "pillow"]
 
 [project.urls]
 Homepage = "https://github.com/ari-robotics/can-a-robot-do-it"
 Organization = "https://arirobotics.ch"
 
 [project.optional-dependencies]
-simready = ["usd-core"]
+simready = ["mujoco[usd]>=4.0"]
 dev = ["pytest"]
 
 [project.scripts]

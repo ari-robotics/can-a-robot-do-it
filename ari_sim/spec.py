@@ -21,7 +21,7 @@ class SceneError(ValueError): pass
 HIDDEN = [0, 0, 0, 0]          # collision stand-ins for a mesh: they collide but are not drawn
 
 def _asset(source):
-    if not (isinstance(source, str) and source.startswith('simready:')): raise SceneError(f'asset source must look like "simready:<name>", got {source!r}')
+    if not (isinstance(source, str) and source.startswith('simready:')): raise SceneError(f'asset source must look like "simready:<asset id>", got {source!r}')
     from . import simready
     try: return simready.get(source.split(':', 1)[1])
     except (KeyError, ValueError) as e: raise SceneError(str(e)) from None
