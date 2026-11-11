@@ -52,10 +52,15 @@ def build(robot, resolved, tool=None, objects=(), camera=None):
             fr = wb.add_frame(); fr.pos = [3.0 + 0.5 * i, -3.0, 0.3]
             nb = fr.attach_body(osp.worldbody.first_body(), f'o{i}_', ''); nb.add_freejoint()
     else:
+        if tool.get('source'):          # a real end effector from the libraries, as its maker modelled it
+            from . import simready; ts_, measured = simready.tool(tool['source']); tool = dict(tool, length=tool.get('length', measured))
+            for k in list(spec.keys): spec.delete(k)
+            spec.attach(ts_, prefix='t_', site=st)
         Rm = np.zeros(9); mujoco.mju_quat2Mat(Rm, np.array(st.quat)); Rm = Rm.reshape(3, 3); Lw = float(tool.get('length', 0.38))
         p0 = np.array(st.pos); p1 = p0 + Rm[:, 2] * Lw
-        tg = tipb.add_geom(); tg.name = 'tool'; tg.type = mujoco.mjtGeom.mjGEOM_CAPSULE; tg.fromto = list(p0) + list(p1 - Rm[:, 2] * 0.02)
-        tg.size = [0.018, 0, 0]; tg.rgba = [0.18, 0.33, 1.0, 1]
+        if not tool.get('source'):
+            tg = tipb.add_geom(); tg.name = 'tool'; tg.type = mujoco.mjtGeom.mjGEOM_CAPSULE; tg.fromto = list(p0) + list(p1 - Rm[:, 2] * 0.02)
+            tg.size = [0.018, 0, 0]; tg.rgba = [0.18, 0.33, 1.0, 1]
         ts = tipb.add_site(); ts.name = 'tip'; ts.pos = p1; ts.quat = st.quat; ts.size = [0.012, 0.012, 0.012]; ts.rgba = [0.18, 0.33, 1, 1]
     if camera:                      # fixed observation camera: {"pos": [..], "target": [..], "fovy": 60}
         cp = np.array(camera['pos'], float); f = np.array(camera['target'], float) - cp; f /= np.linalg.norm(f)
@@ -65,6 +70,7 @@ def build(robot, resolved, tool=None, objects=(), camera=None):
     m = spec.compile(); d = mujoco.MjData(m); bid = m.body(base).id
     info = dict(robot=robot, base_id=bid, tip_site=m.site('g_pinch' if gripper else 'tip').id, ped=m.body('pedestal').mocapid[0], ped_geom=m.geom('ped_geom').id,
                 item=m.body('item').mocapid[0], base_pos0=m.body_pos[bid].copy(), env={i for i in range(m.ngeom) if m.geom(i).name.startswith('env_')},
+                toolg={i for i in range(m.ngeom) if m.body(m.geom_bodyid[i]).name.startswith('t_')},
                 objects=[m.body(f'o{i}_model').id for i in range(len(objects))] if gripper else [], tool=tool)
     return m, d, info
 

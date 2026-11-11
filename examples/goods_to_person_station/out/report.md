@@ -51,9 +51,9 @@ Payload with the heaviest part (1.00 kg) and the tool (0.60 kg):
 
 | Robot | Model | Licence | Reach, payload, joint speeds |
 |---|---|---|---|
-| UR5e | MuJoCo Menagerie `universal_robots_ur5e` at `98a70c5` | BSD-3-Clause | datasheet values kept in `ari_sim/robots.py` |
-| UR10e | MuJoCo Menagerie `universal_robots_ur10e` at `98a70c5` | BSD-3-Clause | datasheet values kept in `ari_sim/robots.py` |
-| CRX-5iA | MuJoCo Menagerie `fanuc_crx5ia` at `98a70c5` | Apache-2.0 | datasheet values kept in `ari_sim/robots.py` |
+| UR5e | MuJoCo Menagerie `universal_robots_ur5e` at `98a70c5` | BSD-3-Clause | https://www.universal-robots.com/manuals/latest/en/datasheets/ur5e/ (wrist speeds kept at the conservative 180 deg/s) |
+| UR10e | MuJoCo Menagerie `universal_robots_ur10e` at `98a70c5` | BSD-3-Clause | https://www.universal-robots.com/manuals/EN/HTML/SW5_19/Content/prod-usr-man/complianceUR10e/H_g5_sections/appendix_g5/tech_spec_sheet.htm |
+| CRX-5iA | MuJoCo Menagerie `fanuc_crx5ia` at `98a70c5` | Apache-2.0 | https://crx.fanucamerica.com/crx-5ia (reach, payload); https://robotec.org/products/cobots/fanuc-crx-5ia.html (joint speeds) |
 
 ## Scale references used
 

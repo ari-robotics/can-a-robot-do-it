@@ -4,9 +4,12 @@ import numpy as np
 # its manufacturer (`simready`, read by MuJoCo's OpenUSD importer); both are downloaded only when a scene uses them.
 # SimReady files carry joint limits but not joint speeds, reach or payload: those always come from a datasheet.
 ROBOTS = {
-    'UR5e':    dict(xml='universal_robots_ur5e/ur5e.xml',   base='base',      tip='wrist_3_link', reach=0.85,  payload=5.0,  vmax=np.radians([180, 180, 180, 180, 180, 180])),
-    'UR10e':   dict(xml='universal_robots_ur10e/ur10e.xml', base='base',      tip='wrist_3_link', reach=1.30,  payload=12.5, vmax=np.radians([120, 120, 180, 180, 180, 180])),
-    'CRX-5iA': dict(xml='fanuc_crx5ia/crx5ia.xml',          base='base_link', tip='J6_link',      reach=0.994, payload=5.0,  vmax=np.radians([240, 240, 240, 250, 250, 250])),
+    'UR5e':    dict(xml='universal_robots_ur5e/ur5e.xml',   base='base',      tip='wrist_3_link', reach=0.85,  payload=5.0,  vmax=np.radians([180, 180, 180, 180, 180, 180]),
+                    datasheet='https://www.universal-robots.com/manuals/latest/en/datasheets/ur5e/ (wrist speeds kept at the conservative 180 deg/s)'),
+    'UR10e':   dict(xml='universal_robots_ur10e/ur10e.xml', base='base',      tip='wrist_3_link', reach=1.30,  payload=12.5, vmax=np.radians([120, 120, 180, 180, 180, 180]),
+                    datasheet='https://www.universal-robots.com/manuals/EN/HTML/SW5_19/Content/prod-usr-man/complianceUR10e/H_g5_sections/appendix_g5/tech_spec_sheet.htm'),
+    'CRX-5iA': dict(xml='fanuc_crx5ia/crx5ia.xml',          base='base_link', tip='J6_link',      reach=0.994, payload=5.0,  vmax=np.radians([150, 150, 180, 225, 225, 225]),
+                    datasheet='https://crx.fanucamerica.com/crx-5ia (reach, payload); https://robotec.org/products/cobots/fanuc-crx-5ia.html (joint speeds)'),
     'Lite6':   dict(xml='ufactory_lite6/lite6.xml',         base='link_base', tip='link6',        reach=0.44,  payload=0.6,  vmax=np.radians([180, 180, 180, 180, 180, 180]),
                     datasheet='https://docs.lite6.ufactory.cc/9.technical_specifications.html'),
     'CRX-10iA': dict(simready='FANUC-CORPORATION/SimReady-Assets/crx10ia/simready_usd/crx10ia.usd@449b304714f21f81e552423fd4f6ea3a821c94c2',
@@ -27,9 +30,19 @@ TOOLS = {
 }
 
 def tool(spec):
-    """The scene's robot.tool with catalog defaults filled in; rejects tools the simulator does not have."""
+    """The scene's robot.tool with defaults filled in. A preset, or any end effector found in the libraries:
+    {"type": "custom", "name", "kind": "suction" | "fingers" | ..., "mass", "datasheet": url, and either
+    "source": "simready:<id>" (its real geometry is mounted on the flange and its length measured) or "length";
+    fingers also give "stroke" and "payload"}. The numbers come from the maker's datasheet, never from a guess."""
     spec = dict(spec or dict(type='suction_wand'))
-    if spec.get('type') not in TOOLS: raise KeyError(f"unknown tool {spec.get('type')!r}; available: {sorted(TOOLS)}")
+    if spec.get('type') == 'custom':
+        need = ['name', 'kind', 'mass', 'datasheet'] + (['stroke', 'payload'] if spec.get('kind') == 'fingers' else [])
+        miss = [k for k in need if k not in spec] + ([] if 'source' in spec or 'length' in spec else ['source or length'])
+        if miss: raise KeyError(f"custom tool {spec.get('name', '')!r} is missing {miss}")
+        if 'source' in spec and 'length' not in spec:
+            from . import simready; spec['length'] = simready.tool(spec['source'])[1]
+        return spec
+    if spec.get('type') not in TOOLS: raise KeyError(f"unknown tool {spec.get('type')!r}; presets: {sorted(TOOLS)}, or describe one as a custom tool (see robots.tool)")
     return {**{k: v for k, v in TOOLS[spec['type']].items() if k != 'note'}, **spec}
 
 def menagerie_dir(robot): return ROBOTS[robot]['xml'].split('/')[0] if 'xml' in ROBOTS[robot] else None

@@ -19,20 +19,24 @@ Read every photo. For a video, pull frames first:
 
 You need one sentence for the task: what is picked, from where, and where it goes. If the person did not say and the images do not make it obvious, ask that one question. Do not ask for dimensions: estimating them, with their uncertainty, is the job.
 
-## 1b. Decide how the robot holds the parts
+## 1b. Decide how the robot holds the parts: the use case decides
 
-The tool changes the answer: on the example station, the same arm completes 25 of 32 cells with a suction wand and 12 with a 2-finger gripper, because fingers need room in the cell. Decide from the parts themselves, write the decision in `robot.tool` with a `why`, and estimate the heaviest part's mass in `task.item_mass_kg`.
+The kind of tool follows from what is picked and where it sits, never from which tool scores better in simulation. Simulation comes after: it tells whether a robotic configuration with that kind of tool can do the job, and which one. Write the decision in `robot.tool` with a `why` that names the parts, and estimate the heaviest part's mass in `task.item_mass_kg`.
 
-| What is picked | Tool | Why |
-|---|---|---|
-| Cartons, cases, boxed goods, panels, sheet metal, sealed bags: a flat, smooth face of at least 3–4 cm | `suction_cup` (from above or the side), `suction_wand` (when the face sits deep in a cell or bin) | Vacuum needs only the face; no room needed around the part |
-| Parts with no flat sealed face (porous, mesh, cloth, round or irregular), tools, bottles, machined parts, anything to orient or insert | `gripper_2f85` | Fingers hold by shape; at most 85 mm wide on the gripping side, 5 kg |
-| Both kinds in the same flow | Ask (below); then simulate the tool that covers most parts, and say which parts stay unassessed | One tool rarely fits both; a tool changer or dual tool is a cost decision for the person |
-| Wider than 85 mm on every side with no flat face, heavier than any payload, very soft or tangled | None of the simulated tools | Say so, name what would be needed (larger or soft gripper, magnet, custom tool), and ask before going on |
+| What is picked | Kind of tool |
+|---|---|
+| Cartons, cases, boxed goods, panels, sheet metal, sealed bags: a flat, smooth, airtight face of at least 3–4 cm | Suction |
+| Parts with no flat sealed face (porous, mesh, cloth, round, irregular), tools, bottles, machined parts, anything to orient or insert | Fingers |
+| Ferrous parts, very soft or tangled items, food, anything else | The tool the trade uses for it (magnet, soft gripper, needle gripper...): look it up |
+| Several kinds in the same flow | One kind per family of parts; say so, and simulate each family with its tool |
 
-Checks that settle most cases: the part's smallest width against the 85 mm stroke; the face against a cup; tool mass plus part mass against the arm's payload (the report does this); whether fingers fit around the part where it sits.
+Then pick the model inside that kind, from everything the libraries hold; never stop at "not in the presets":
 
-If the photos do not settle it, ask the person one short question before writing the scene, with the options laid out (in Claude Code, use the question tool): what the parts are made of, whether they have a flat sealed face, how heavy the heaviest one is, or whether they have a tool in mind. Do not pick a tool on a guess when the answer would change the result. When two tools are both plausible, run the diagnostic with each (about a minute each) and compare them in the report.
+1. Presets (`suction_wand`, `suction_cup`, `gripper_2f85`) when they fit: stroke wider than the part's gripping side, payload above the part's mass, length enough to reach where the part sits.
+2. Otherwise `ari-sim assets search <kind of gripper, maker>`: SimReady holds makers' end effectors (Robotiq 2F-140 and Hand-E, OnRobot RG2/RG6/2FG7/2FG14, more over time). Declare the one that fits as `{"type": "custom", "name", "kind", "source": "simready:<id>", "mass", "stroke", "payload", "datasheet": "<url>"}`: its real geometry is mounted on the flange. Stroke, payload and mass come from the maker's datasheet.
+3. If no library has a model of the right tool, still do not stop: declare it as a custom tool with its `length` and `mass` from a datasheet (it is then simulated as a slender body of that length) and say in the report that its shape is approximate.
+
+Ask the person only for facts about the use case that the photos cannot show and that change the kind of tool: what the parts are made of, whether they have a flat airtight face, how heavy the heaviest one is, whether the parts vary. One short question with the options laid out (in Claude Code, use the question tool). Do not ask which tool they want: that is your job.
 
 ## 2. Write `runs/<name>/scene.json`
 
@@ -64,9 +68,20 @@ Say in the report which SimReady assets you used, with their attribution line.
 
 `ari-sim diagnose runs/<name>/scene.json --out runs/<name>/out` (a few minutes). Read `out/report.md` and look at `out/diagnostic.png`.
 
+## 4b. Iterate until a configuration works
+
+The first run is rarely the answer. The use case is fixed (the station, the parts, the kind of tool); everything robotic is yours to change, and each run takes about a minute. If the verdict is not `reach_ok`, read which step failed in `report.md` and change the configuration, one thing at a time:
+
+- Targets out of reach: longer arms from `ari-sim robots list`, then from the libraries (`ari-sim assets search <maker> arm`, `ari-sim robots inspect <id>`, datasheet speeds); a wider `base_search`; another pedestal range; a vertical axis.
+- Drop unreachable: move the base towards the drop, or propose moving the drop container (a layout change the person must accept: say so).
+- Path blocked or collisions: another model of the same kind of tool (longer, slimmer), another base side, an obstacle the robot cell would remove (move it to `assumptions`).
+- Over payload: a stronger arm, a lighter tool of the same kind.
+
+Keep each run's folder (`out_1`, `out_2`...). Stop when a configuration passes, or when arms, bases and tool models are exhausted; then say plainly what was tried and what blocks. Do not change the kind of tool to get a better score.
+
 ## 5. Report to the person
 
-Lead with the verdict and the two or three dimensions to measure on site. Then: the tool and why (and the other tool's result if you ran both), payload margin, robot and base position, share of targets with a full collision-free cycle, cycle time as a ceiling, how the result holds across the variants. Always say what was assumed and that grasp reliability is not assessed. Send `diagnostic.png` and `cycle.mp4`.
+Lead with the verdict and the two or three dimensions to measure on site. Then: the kind of tool and why the parts call for it, the model chosen and its payload margin, the configurations tried and why the final one won, robot and base position, share of targets with a full collision-free cycle, cycle time as a ceiling, how the result holds across the variants. Always say what was assumed and that grasp reliability is not assessed. Send `diagnostic.png` and `cycle.mp4`.
 
 If the verdict is `no_feasible_layout`, look at which step failed (drop unreachable? targets out of reach?) and say what layout change would fix it, for example moving the drop container in front of the robot, rather than only reporting the failure.
 

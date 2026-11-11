@@ -1,0 +1,30 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MUJOCO_GL: egl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: System libraries for headless rendering
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgles2 libgl1-mesa-dri ffmpeg
+      - name: Install
+        run: pip install -e ".[simready,dev]"
+      - name: Robot models
+        run: ari-sim setup --objects 0
+      - name: Tests
+        run: pytest -q
+      - name: Example scene compiles and renders
+        run: ari-sim check examples/goods_to_person_station/scene.json --out ci_out
+      - name: Quick diagnostic on the example
+        run: ari-sim diagnose examples/goods_to_person_station/scene.json --out ci_out --variants 2 --no-video

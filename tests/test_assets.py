@@ -114,3 +114,24 @@ def test_tool_catalog_and_checks(fake_assets):
     assert 'Why this tool: parts have no flat face' in text
     assert '- UR10e: 12.93 of 12.5 kg — **over payload**' in text and "over the gripper's payload" in text
     assert 'crate_blue_a01' in text                                  # 0.4 m wide on every side but one: too wide for 85 mm
+
+def test_custom_tools_and_folder_ids(monkeypatch):
+    from ari_sim.robots import tool
+    from ari_sim.report import tooling
+    rev = 'd' * 40
+    assert SR.parse(f'onrobot/simready-grippers/onrobot_rg6@{rev}') == dict(repo='onrobot/simready-grippers', rev=rev, path=None, folder='onrobot_rg6', id=f'onrobot/simready-grippers/onrobot_rg6@{rev}')
+    monkeypatch.setattr(SR, 'tool', lambda ref: (None, 0.21))
+    t = tool(dict(type='custom', name='Robotiq 2F-140', kind='fingers', mass=1.0, stroke=0.14, payload=2.5, datasheet='https://example.com', source=f'simready:a/b/c@{rev}'))
+    assert t['length'] == 0.21                                       # measured from the model when not given
+    magnet = tool(dict(type='custom', name='Magnet', kind='magnet', mass=0.8, length=0.1, datasheet='https://example.com'))
+    text = '\n'.join(tooling(S.load(_scene([])) | {'task': {}}, {'robots': {'UR10e': {}}, 'tool': magnet}))
+    assert '**Magnet** (magnet)' in text and 'shape approximated' in text
+    with pytest.raises(KeyError): tool(dict(type='custom', name='x', kind='fingers', mass=1, datasheet='u', length=0.1))      # no stroke, payload
+    with pytest.raises(KeyError): tool(dict(type='custom', name='x', kind='suction', mass=1, datasheet='u'))                  # no source or length
+
+def test_search_fallback_finds_makers_robots(monkeypatch):
+    def down(url, timeout=60): raise OSError('unreachable')
+    monkeypatch.setattr(SR, '_open', down); monkeypatch.setattr(SR, 'names', lambda: NAMES)
+    monkeypatch.setattr(SR, 'maker_assets', lambda: [('crx10ia', 'FANUC-CORPORATION/SimReady-Assets/crx10ia@' + 'e' * 40), ('onrobot_rg6', 'onrobot/simready-grippers/onrobot_rg6@' + 'e' * 40)])
+    assert SR.search('fanuc crx10ia arm')[0][0].startswith('FANUC-CORPORATION/SimReady-Assets/crx10ia@')
+    assert SR.search('onrobot rg6')[0][0].startswith('onrobot/simready-grippers/onrobot_rg6@')

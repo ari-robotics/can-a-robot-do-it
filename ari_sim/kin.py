@@ -18,11 +18,12 @@ class Kin:
             q = np.clip(q + J.T @ np.linalg.solve(J @ J.T + lam * lam * np.eye(6), e), self.lo, self.hi)
         return q, False
     def free(self, q):
-        m, d = self.m, self.d; d.qpos[:6] = q; mujoco.mj_fwdPosition(m, d); env = self.info['env']
+        m, d = self.m, self.d; d.qpos[:6] = q; mujoco.mj_fwdPosition(m, d); env = self.info['env']; tg = self.info.get('toolg', ())
         for i in range(d.ncon):
             c = d.contact[i]
             if c.dist > -0.004: continue
             if c.geom1 in env and c.geom2 in env: continue
+            if c.geom1 in tg and c.geom2 in tg: continue          # a mounted tool's own links overlap by design
             return False
         return True
     def solve(self, p, a, seeds=(), tries=5):

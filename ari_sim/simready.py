@@ -38,6 +38,8 @@ def parse(ref):
         body, rev = ref.rsplit('@', 1); parts = body.split('/')
         if len(parts) < 3 or not re.fullmatch(r'[0-9a-f]{40}', rev): raise KeyError(f'bad asset id {ref!r}: expected <org>/<repo>/<path>@<40-char revision>')
         repo, path = '/'.join(parts[:2]), '/'.join(parts[2:])
+        if not re.search(r'\.usd[ac]?$', path):                 # <org>/<repo>/<folder>@<rev>: the root USD is looked up
+            return dict(repo=repo, rev=rev, path=None, folder=parts[2], id=ref)
     elif '/' not in ref: repo, rev, path = REPO, REVISION, None
     else: raise KeyError(f'bad asset id {ref!r}')
     folder = path.split('/')[0] if path else ref
@@ -77,6 +79,23 @@ def search_names(query, n=10):
         if s: scored.append((-s, len(name), name))
     return [name for _, _, name in sorted(scored)[:n]]
 
+# manufacturers' datasets, indexed by folder name when the search API is down, so robots and grippers stay findable
+MAKERS = ['FANUC-CORPORATION/SimReady-Assets', 'TeradyneRobotics/UniversalRobots', 'Robotiq-Official/simready-assets', 'onrobot/simready-grippers',
+          'frankarobotics/simready-assets', 'standardbots/simready-core']
+
+def maker_assets():
+    """[(folder, id)] over the manufacturers' datasets at their current revision, cached."""
+    p = os.path.join(ROOT, 'makers.json')
+    if os.path.exists(p): return [tuple(x) for x in json.load(open(p))]
+    out = []
+    for repo in MAKERS:
+        try:
+            rev = json.load(_open(f'https://huggingface.co/api/datasets/{repo}'))['sha']
+            out += [(e['path'], f"{repo}/{e['path']}@{rev}") for e in _tree(repo, rev) if e['type'] == 'directory' and not e['path'].startswith('.')]
+        except Exception: continue
+    if out: os.makedirs(ROOT, exist_ok=True); json.dump(out, open(p, 'w'))
+    return out
+
 def search(query, n=10):
     """Natural-language search over all SimReady datasets (robots included). Returns [(id, source)], source 'central' or 'names'."""
     try:
@@ -87,7 +106,9 @@ def search(query, n=10):
             if i not in out: out.append(i)
         return [(i, 'central') for i in out[:n]]
     except Exception:
-        return [(i, 'names') for i in search_names(query, n)]
+        q = [w for w in re.findall(r'[a-z0-9]+', query.lower()) if len(w) > 1]
+        mk = sorted((-sum(w in re.sub(r'[^a-z0-9]', '', (f + i.split('/')[0]).lower()) for w in q), f, i) for f, i in maker_assets())
+        return [(i, 'names') for s, _, i in mk if s < 0][:n // 2] + [(i, 'names') for i in search_names(query, n)]
 
 # ---------- files
 def files(ref):
@@ -216,6 +237,21 @@ def _flange(root, s):
     if prim.GetName() == 'flange':                            # REP-199 flange: x points out of the tool plate; turn it so z does
         out = np.zeros(4); mujoco.mju_mulQuat(out, q, np.array([np.cos(np.pi / 4), 0, np.sin(np.pi / 4), 0])); q = out
     return str(par.GetPath()), t, q
+
+@functools.lru_cache(maxsize=None)
+def _tool(rid):
+    import mujoco
+    s = _decode(fetch(rid)); m = s.compile(); d = mujoco.MjData(m); mujoco.mj_forward(m, d); top = 0.0
+    for g in range(m.ngeom):
+        if m.geom_type[g] != mujoco.mjtGeom.mjGEOM_MESH: continue
+        k = m.geom_dataid[g]; v = m.mesh_vert[m.mesh_vertadr[k]:m.mesh_vertadr[k] + m.mesh_vertnum[k]]
+        top = max(top, float((v @ d.geom_xmat[g].reshape(3, 3).T + d.geom_xpos[g])[:, 2].max()))
+    return s, round(top, 3)
+
+def tool(ref):
+    """An end effector from SimReady: (MjSpec copy to mount on a flange, its length along the flange axis in metres)."""
+    s, length = _tool(parse(ref)['id'])
+    return s.copy(), length
 
 @functools.lru_cache(maxsize=None)
 def _robot(rid):

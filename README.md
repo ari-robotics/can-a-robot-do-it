@@ -2,7 +2,7 @@
 
 # can-a-robot-do-it
 
-**Show your coding agent a workstation. Get back a robot cell: which arm, where to put it, how fast, and what to measure first.**
+**Show your coding agent a workstation to automate. It rebuilds it in simulation, then searches for the robot cell that does the job: which arm, which gripper, where, how fast, and what to measure first.**
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-D97757)](#install)
@@ -14,7 +14,7 @@
 
 <img src=".github/media/grasp.webp" width="100%" alt="A UR10e with a 2-finger gripper picking three different scanned objects from shelf cells and dropping them into a tote">
 
-<sub>Three scanned real-world objects in random poses, picked with a 2-finger gripper in full contact physics, in a station rebuilt from phone photos.</sub>
+<sub>Three scanned real-world objects in random poses, picked with a 2-finger gripper in full contact physics, in a station rebuilt from phone photos. These are three successes: the scripted baseline delivers about one object in twenty today.</sub>
 
 </div>
 
@@ -22,14 +22,22 @@
 
 Before anyone buys a robot, someone has to answer a simple question: *can a robot actually do this job, here?* Today that means a site visit, a tape measure and days in a CAD tool.
 
-**can-a-robot-do-it** answers it from a few phone photos, inside the coding agent you already use. The agent reads the photos and rebuilds the workstation; a MuJoCo simulation tries real robot arms in it; you get a verdict with its uncertainty, and the short list of dimensions worth measuring on site.
+**can-a-robot-do-it** answers it from a few phone photos or a video, inside the coding agent you already use, in two moves:
+
+1. **Rebuild the use case.** The agent reconstructs the station in 3D with its collisions, using real objects from open simulation libraries where they exist, and works out what is picked, from where, to where.
+2. **Search for the robotic configuration.** The parts decide the kind of tool (suction, fingers, other). The agent then iterates in simulation over arms, grippers and base positions, drawing on every library it can reach, until a configuration does the job or it can say exactly what blocks.
+
+You get a verdict with its uncertainty, and the short list of dimensions worth measuring on site.
 
 ```
   ● 3 phone photos + "pick from the shelf, drop in the tote"
   │
-  ● your agent reads them      →  scene.json, every dimension ± its uncertainty
+  ● your agent rebuilds it     →  scene.json: real objects, every dimension ± its uncertainty
   │
-  ● MuJoCo tries the arms      →  3 arms × 60 base positions, collision-free cycles, timed
+  ● the parts decide the tool  →  suction, fingers or other; the model comes from the libraries
+  │
+  ● MuJoCo tries the cells     →  arms × tools × 60 base positions, collision-free cycles, timed
+  │                               (not good enough? the agent changes the configuration and reruns)
   │
   ● 40 plausible variants      →  how sure the answer is, what moves it most
   │
@@ -72,7 +80,7 @@ The agent asks only what the photos cannot tell it, checks its reconstruction ag
 | | |
 |---|---|
 | **Verdict** | Reach validated for a pilot, valid if a few dimensions check out, marginal, or no feasible layout — and then which layout change would fix it |
-| **Tool** | Suction or fingers, why, and the payload margin with the heaviest part |
+| **Tool** | The kind of tool the parts call for, the model chosen, and its payload margin |
 | **Robot and base** | The arm that covers the station, where its base goes, how high the pedestal is |
 | **Reach map** | Every pick target, reached or not, with a full collision-free cycle or not |
 | **Cycle time** | Per target, at joint speed limits: a ceiling, said as such |
@@ -83,8 +91,8 @@ The agent asks only what the photos cannot tell it, checks its reconstruction ag
 ## How it works
 
 1. **Perceive.** The agent reads the photos and writes `scene.json`: the workstation as a handful of components (boxes, shelf units, totes, pick and place points). Every estimated dimension is a parameter *with its uncertainty*, tied to a scale reference visible in the photos. The scene is rendered and compared with the photos until they match.
-2. **Choose the tool.** Suction for cartons and anything with a flat sealed face, a 2-finger gripper for parts, tools and bottles. The agent decides from what is picked, asks you when the photos do not settle it, and can run both: on the example, the same arm completes 25 of 32 cells with a suction wand and 12 with fingers.
-3. **Diagnose.** Each candidate arm is tried at a grid of base positions and pedestal heights. For the best one, a collision-free path is planned to every pick target (IK, straight-line insertion, RRT-Connect) and timed at joint speed limits.
+2. **Choose the tool from the use case.** Suction for cartons and anything with a flat airtight face, fingers for parts, tools and bottles, the trade's tool for the rest. The parts decide the kind of tool, not the simulation score; the agent asks you only what the photos cannot show (material, weight). The model then comes from the libraries: presets, or any maker's gripper in SimReady, mounted with its real geometry.
+3. **Diagnose, and iterate.** Each candidate arm is tried at a grid of base positions and pedestal heights; if nothing passes, the agent changes arm, tool model or base and reruns. For the best one, a collision-free path is planned to every pick target (IK, straight-line insertion, RRT-Connect) and timed at joint speed limits.
 4. **Quantify the doubt.** A photo gives geometry to within 10–20 %. The scene is re-simulated on dozens of plausible variants, so the report says how often the layout holds and which dimensions matter most.
 5. **Grasp (experimental).** A Robotiq 2F-85 replaces the suction tool, scanned real-world objects are dropped into the pick cells, and a scripted expert runs with contact physics. Episodes are recorded (image, joints, action) as raw material for imitation learning.
 
@@ -121,6 +129,7 @@ Physics grasping baseline, 300 episodes over 31 scanned objects with a parallel 
 - **Cycle times are ceilings.** Joint speed limits, no payload, no safety-rated speed reduction.
 - **Geometry is primitives.** Boxes and cylinders are enough for reach and clearance, not for fine contact with the workstation itself.
 - **Validated on one station so far.** The next step is ten stations with tape-measured dimensions, to report the real error per dimension.
+- **Suction is checked for reach and clearance, not for seal.** Contact physics exists only for the 2-finger gripper, and library grippers are simulated in the pose their model file defines.
 - **Six-axis arms only.** Five presets (UR5e, UR10e, FANUC CRX-5iA and CRX-10iA, UFactory Lite 6), and any six-axis SimReady arm whose datasheet gives its joint speeds. Seven-axis arms (Franka, KUKA iiwa) need planner work.
 - **Catalog assets are as good as their data.** Masses that look implausible for the size are flagged for a person to check.
 

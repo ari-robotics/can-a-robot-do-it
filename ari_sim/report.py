@@ -102,7 +102,8 @@ def _menagerie_licence(folder):
 
 def tooling(sc, res):
     """The end effector, why it was chosen, and whether tool + part fit each arm's payload and the gripper's stroke."""
-    t = res['tool']; L = ['', '## Tool', '', f"**{t['type']}** ({t['kind']}): {TOOLS[t['type']]['note']}."]
+    t = res['tool']; label = t.get('name', t['type']); note = TOOLS[t['type']]['note'] if t['type'] in TOOLS else f"{t['length'] * 1000:.0f} mm long, {t['mass']:.2f} kg; specs from {t['datasheet']}" + ('; real geometry, in the pose its model file defines' if t.get('source') else '; shape approximated by a slender body')
+    L = ['', '## Tool', '', f"**{label}** ({t['kind']}): {note}."]
     if t.get('why'): L += ['', f"Why this tool: {t['why']}"]
     items = [c for c in sc['components'] if c.get('type') == 'asset' and c.get('role') == 'item']
     metas = []
@@ -132,6 +133,10 @@ def provenance(sc, res):
         else:
             from . import simready; a = simready.parse(R['simready']); src, lic = f"SimReady `{a['repo']}/{a['folder']}` at `{a['rev'][:7]}`", simready.license(R['simready'])
         L.append(f'| {r} | {src} | {lic} | {spec} |')
+    t = res.get('tool') or {}
+    if t.get('source'):
+        from . import simready; a = simready.parse(t['source'])
+        L += ['', f"Tool model: SimReady `{a['repo']}/{a['folder']}` at `{a['rev'][:7]}`, {simready.license(t['source'])}."]
     objs = [c for c in sc['components'] if c.get('type') == 'asset']
     if objs:
         from . import simready

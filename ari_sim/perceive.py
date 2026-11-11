@@ -37,7 +37,7 @@ Model only what constrains a robot: surfaces, containers, structure, and obstacl
 ## Task and robot
 "task": {"description", "pick_inset": how far past the opening the tool goes (m), "pre_offset": stand-off before entering (m)}.
 "task" may also carry "item_mass_kg": the heaviest part picked, your estimate from what it is (checked against payloads).
-"robot.tool": {"type": "suction_wand" | "suction_cup" | "gripper_2f85", "why": one sentence on why this tool suits these parts}. Choose it from the parts, not by habit: see the skill.
+"robot.tool": a preset {"type": "suction_wand" | "suction_cup" | "gripper_2f85"} or any end effector from the libraries {"type": "custom", "name", "kind", "source": "simready:<id>", "mass", "stroke", "payload", "datasheet": url}; always with "why": one sentence tying the tool to the parts. The parts decide the tool: see the skill.
 "robot": {"candidates": preset names from `ari-sim robots list` that suit the payload and reach (default ["UR5e","UR10e","CRX-5iA"]), or a SimReady arm as {"name","source":"simready:<id>","reach","payload","vmax_deg":[6 values],"datasheet":url}, "tool": {"type":"suction_wand","length":0.38}, "base_search": {"x":[lo,hi,n],"y":[lo,hi,n],"pedestal":[lo,hi,n]}, "observation_camera": {"pos","target","fovy"}}
 base_search is the floor region where a robot base could physically stand (usually where the operator stands) and the pedestal heights to try.
 
