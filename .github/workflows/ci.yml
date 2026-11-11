@@ -8,21 +8,15 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    container: python:3.11-slim
     timeout-minutes: 20
     env:
       MUJOCO_GL: egl
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: System libraries for headless rendering
+      - name: System libraries (git, headless rendering)
         timeout-minutes: 5
-        run: |
-          # the runners' Azure mirror is sometimes unreachable: use the main archive directly
-          sudo sed -i 's|mirror+file:/etc/apt/apt-mirrors.txt|http://archive.ubuntu.com/ubuntu/|' /etc/apt/sources.list.d/ubuntu.sources
-          sudo apt-get update -o Acquire::http::Timeout=10
-          sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout=10 libegl1 libgles2 libgl1-mesa-dri
+        run: apt-get update && apt-get install -y --no-install-recommends git ca-certificates libegl1 libgles2 libgl1-mesa-dri
+      - uses: actions/checkout@v4
       - name: Install
         run: pip install -e ".[simready,dev]"
       - name: Robot models
