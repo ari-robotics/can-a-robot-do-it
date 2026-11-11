@@ -57,7 +57,7 @@ Clone https://github.com/ari-robotics/can-a-robot-do-it, set it up, and follow
 workstation. Task: [what is picked, from where, and where it goes].
 ```
 
-The skill is a plain [`SKILL.md`](.claude/skills/workstation-sim/SKILL.md): any agent that can read files and run commands can follow it. The first run installs the Python package and downloads the robot models and scanned objects (~2.6 GB, once).
+The skill is a plain [`SKILL.md`](.claude/skills/workstation-sim/SKILL.md): any agent that can read files and run commands can follow it. The first run installs the Python package and downloads the robot models and scanned objects (~430 MB, once).
 
 ### Then ask
 
