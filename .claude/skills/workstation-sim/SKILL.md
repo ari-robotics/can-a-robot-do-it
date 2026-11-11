@@ -10,7 +10,7 @@ You do the reading that `ari_sim/perceive.py` would otherwise delegate to the AP
 ## 0. Get the code
 
 The steps below run from a checkout of the repo. If the current folder has no `ari_sim/` (for example when this skill came from the plugin), clone it, install it in a virtual environment with Python 3.10 or later, and work from there:
-`git clone https://github.com/ari-robotics/can-a-robot-do-it && cd can-a-robot-do-it && pip install -e ".[perceive]" && ari-sim setup`
+`git clone https://github.com/ari-robotics/can-a-robot-do-it && cd can-a-robot-do-it && pip install -e . && ari-sim setup`
 
 ## 1. Look, then ask only what the images cannot tell you
 
