@@ -19,7 +19,6 @@ Homepage = "https://github.com/ari-robotics/can-a-robot-do-it"
 Organization = "https://arirobotics.ch"
 
 [project.optional-dependencies]
-perceive = ["anthropic"]
 dev = ["pytest"]
 
 [project.scripts]

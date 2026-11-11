@@ -5,7 +5,7 @@ description: Turn photos or a video of a workstation into a robot simulation and
 
 # Workstation diagnostic from photos
 
-You do the reading that `ari_sim/perceive.py` would otherwise delegate to the API: you look at the images and write `scene.json`. The code does the rest. Work in a new folder `runs/<short-name>/`.
+You do the reading: you look at the images and write `scene.json`. The code does the rest. Work in a new folder `runs/<short-name>/`.
 
 ## 0. Get the code
 
@@ -21,7 +21,7 @@ You need one sentence for the task: what is picked, from where, and where it goe
 
 ## 2. Write `runs/<name>/scene.json`
 
-Follow the rules in the `SYSTEM` prompt of `ari_sim/perceive.py` exactly (frame, scale references, params with sigma, component library, assumptions) and use `examples/goods_to_person_station/scene.json` as the format reference. The points that matter most:
+Follow `SCENE_RULES` in `ari_sim/perceive.py` exactly (frame, scale references, params with sigma, component library, assumptions) and use `examples/goods_to_person_station/scene.json` as the format reference. The points that matter most:
 
 - Every dimension comes from a scale reference you can actually see. List them. Never invent one.
 - Every estimated dimension that affects reach is a param with a `sigma`. 10–20 % of the value is normal from one photo.
