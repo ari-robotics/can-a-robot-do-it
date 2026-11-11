@@ -12,7 +12,9 @@
 
 [Install](#install) · [What you get](#what-you-get) · [How it works](#how-it-works) · [Results](#results-on-a-real-station) · [Limits](#what-it-does-not-do)
 
-<img src=".github/media/cycle.gif" width="100%" alt="A UR10e running the pick-and-place cycle in a station rebuilt from phone photos">
+<img src=".github/media/grasp.webp" width="100%" alt="A UR10e with a 2-finger gripper picking three different scanned objects from shelf cells and dropping them into a tote">
+
+<sub>Three scanned real-world objects in random poses, picked with a 2-finger gripper in full contact physics, in a station rebuilt from phone photos.</sub>
 
 </div>
 

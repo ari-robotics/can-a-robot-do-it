@@ -84,7 +84,7 @@ def video(sc, res, path, n_show=3, w=1280, h=720, fps=30):
             if mi == 4:
                 carried = False; d.mocap_pos[info['item']] = pl['drop'] - np.array([0.14 - 0.14 * n_drop, 0, 0.35]); n_drop += 1
                 [frame(lab, 'release') for _ in range(int(0.3 * fps))]
-    for _ in range(25): frame('Pick → place', '')
+    for _ in range(25): frame('Pick and place', '')
     ff.stdin.close(); rc = ff.wait(); ren.close()
     if rc == 0: os.replace(tmp, path)
     return rc == 0
