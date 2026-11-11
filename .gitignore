@@ -1,0 +1,11 @@
+__pycache__/
+*.egg-info/
+.pytest_cache/
+out/
+!examples/*/out/
+examples/*/out/episodes/
+*.part.mp4
+.env
+.venv/
+runs/
+MUJOCO_LOG.TXT

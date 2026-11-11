@@ -1,0 +1,11 @@
+{
+  "name": "can-a-robot-do-it",
+  "version": "0.1.0",
+  "description": "Photos of a workstation in, robot feasibility out: which arm, where to put it, what it reaches, how fast, and which dimensions to measure first. MuJoCo simulation with uncertainty.",
+  "author": { "name": "ARI — Applied Robotics Institute", "url": "https://arirobotics.ch" },
+  "homepage": "https://github.com/ari-robotics/can-a-robot-do-it",
+  "repository": "https://github.com/ari-robotics/can-a-robot-do-it",
+  "license": "Apache-2.0",
+  "keywords": ["robotics", "mujoco", "robot-simulation", "cobot", "workcell", "industrial-automation", "feasibility"],
+  "skills": "./.claude/skills/"
+}

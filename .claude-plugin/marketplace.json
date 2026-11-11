@@ -1,0 +1,13 @@
+{
+  "name": "ari-robotics",
+  "description": "Robotics tools for Claude Code by ARI — Applied Robotics Institute.",
+  "owner": { "name": "ARI — Applied Robotics Institute", "url": "https://arirobotics.ch" },
+  "plugins": [
+    {
+      "name": "can-a-robot-do-it",
+      "source": "./",
+      "description": "Photos of a workstation in, robot feasibility out: which arm, where, how fast, what to measure first.",
+      "category": "robotics"
+    }
+  ]
+}
