@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 from . import spec as S, assets
 from .build import build, set_base, scene_view, render
 from .kin import move_time, along
-from .robots import ROBOTS
+from .robots import ROBOTS, TOOLS
 
 INK = (17, 17, 17); BLUE = (47, 84, 255); MUT = (95, 97, 94); LINE = (212, 211, 204); SIL = (184, 187, 184); PAPER = (242, 241, 237)
 def _font(size, bold=False, mono=False):
@@ -100,6 +100,28 @@ def _menagerie_licence(folder):
         if key in t: return name
     return 'see LICENSE in the model folder'
 
+def tooling(sc, res):
+    """The end effector, why it was chosen, and whether tool + part fit each arm's payload and the gripper's stroke."""
+    t = res['tool']; L = ['', '## Tool', '', f"**{t['type']}** ({t['kind']}): {TOOLS[t['type']]['note']}."]
+    if t.get('why'): L += ['', f"Why this tool: {t['why']}"]
+    items = [c for c in sc['components'] if c.get('type') == 'asset' and c.get('role') == 'item']
+    metas = []
+    if items:
+        from . import simready; metas = [simready.get(c['source'].split(':', 1)[1]) for c in items]
+    part = sc.get('task', {}).get('item_mass_kg')
+    part = float(part) if part is not None else max((m['mass'] or 0 for m in metas), default=None)
+    if part is not None:
+        L += ['', f"Payload with the heaviest part ({part:.2f} kg) and the tool ({t['mass']:.2f} kg):", '']
+        for r in res['robots']:
+            need = part + t['mass']; cap = ROBOTS[r]['payload']
+            L.append(f"- {r}: {need:.2f} of {cap:.1f} kg" + ('' if need <= cap else ' — **over payload**'))
+        if t['kind'] == 'fingers' and part > t['payload']: L.append(f"- the gripper itself is rated {t['payload']:.1f} kg: **over the gripper's payload**")
+    else: L += ['', 'Part mass not given (`task.item_mass_kg`): payload not checked.']
+    if t['kind'] == 'fingers' and metas:
+        wide = [m['name'] for m in metas if sorted(m['extent'])[1] > t['stroke']]
+        L += ['', f"Parts wider than the {t['stroke'] * 1000:.0f} mm stroke on every side but one: {', '.join(wide)}." if wide else f"Every part fits the {t['stroke'] * 1000:.0f} mm stroke on at least one side."]
+    return L
+
 def provenance(sc, res):
     """Where every robot model and real object came from, its licence, and the attribution it requires."""
     from .robots import menagerie_dir
@@ -142,6 +164,7 @@ def markdown(sc, res, path):
         if s:
             L += ['', '**Measure on site first** (dimensions that move the result most):', '']
             for k, r in s: L.append(f"- `{k}` — {sc['params'][k].get('note', '')} (currently {sc['params'][k]['value']} ± {sc['params'][k].get('sigma', 0)} m, correlation {r:+.2f})")
+    L += tooling(sc, res)
     L += provenance(sc, res)
     if sc.get('scale_references'): L += ['', '## Scale references used', ''] + [f'- {x}' for x in sc['scale_references']]
     if sc.get('assumptions'): L += ['', '## Assumptions', ''] + [f'- {x}' for x in sc['assumptions']]

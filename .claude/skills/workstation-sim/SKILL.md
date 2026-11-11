@@ -19,6 +19,21 @@ Read every photo. For a video, pull frames first:
 
 You need one sentence for the task: what is picked, from where, and where it goes. If the person did not say and the images do not make it obvious, ask that one question. Do not ask for dimensions: estimating them, with their uncertainty, is the job.
 
+## 1b. Decide how the robot holds the parts
+
+The tool changes the answer: on the example station, the same arm completes 25 of 32 cells with a suction wand and 12 with a 2-finger gripper, because fingers need room in the cell. Decide from the parts themselves, write the decision in `robot.tool` with a `why`, and estimate the heaviest part's mass in `task.item_mass_kg`.
+
+| What is picked | Tool | Why |
+|---|---|---|
+| Cartons, cases, boxed goods, panels, sheet metal, sealed bags: a flat, smooth face of at least 3–4 cm | `suction_cup` (from above or the side), `suction_wand` (when the face sits deep in a cell or bin) | Vacuum needs only the face; no room needed around the part |
+| Parts with no flat sealed face (porous, mesh, cloth, round or irregular), tools, bottles, machined parts, anything to orient or insert | `gripper_2f85` | Fingers hold by shape; at most 85 mm wide on the gripping side, 5 kg |
+| Both kinds in the same flow | Ask (below); then simulate the tool that covers most parts, and say which parts stay unassessed | One tool rarely fits both; a tool changer or dual tool is a cost decision for the person |
+| Wider than 85 mm on every side with no flat face, heavier than any payload, very soft or tangled | None of the simulated tools | Say so, name what would be needed (larger or soft gripper, magnet, custom tool), and ask before going on |
+
+Checks that settle most cases: the part's smallest width against the 85 mm stroke; the face against a cup; tool mass plus part mass against the arm's payload (the report does this); whether fingers fit around the part where it sits.
+
+If the photos do not settle it, ask the person one short question before writing the scene, with the options laid out (in Claude Code, use the question tool): what the parts are made of, whether they have a flat sealed face, how heavy the heaviest one is, or whether they have a tool in mind. Do not pick a tool on a guess when the answer would change the result. When two tools are both plausible, run the diagnostic with each (about a minute each) and compare them in the report.
+
 ## 2. Write `runs/<name>/scene.json`
 
 Follow `SCENE_RULES` in `ari_sim/perceive.py` exactly (frame, scale references, params with sigma, component library, assumptions) and use `examples/goods_to_person_station/scene.json` as the format reference. The points that matter most:
@@ -51,10 +66,10 @@ Say in the report which SimReady assets you used, with their attribution line.
 
 ## 5. Report to the person
 
-Lead with the verdict and the two or three dimensions to measure on site. Then: robot and base position, share of targets with a full collision-free cycle, cycle time as a ceiling, how the result holds across the variants. Always say what was assumed and that grasp reliability is not assessed. Send `diagnostic.png` and `cycle.mp4`.
+Lead with the verdict and the two or three dimensions to measure on site. Then: the tool and why (and the other tool's result if you ran both), payload margin, robot and base position, share of targets with a full collision-free cycle, cycle time as a ceiling, how the result holds across the variants. Always say what was assumed and that grasp reliability is not assessed. Send `diagnostic.png` and `cycle.mp4`.
 
 If the verdict is `no_feasible_layout`, look at which step failed (drop unreachable? targets out of reach?) and say what layout change would fix it, for example moving the drop container in front of the robot, rather than only reporting the failure.
 
 ## Optional: physics grasping
 
-Only for shelf-type picks: `ari-sim grasp runs/<name>/scene.json --episodes 60 --out runs/<name>/out/episodes`. Report the outcome counts as they are; the scripted expert is a weak baseline by design.
+Only when the tool is the 2-finger gripper, and only for shelf-type picks: `ari-sim grasp runs/<name>/scene.json --episodes 60 --out runs/<name>/out/episodes`. Report the outcome counts as they are; the scripted expert is a weak baseline by design.

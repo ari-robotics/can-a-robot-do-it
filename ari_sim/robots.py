@@ -16,6 +16,22 @@ ROBOTS = {
 DEFAULT_CANDIDATES = ['UR5e', 'UR10e', 'CRX-5iA']     # tried when a scene names none; fetched by `ari-sim setup`
 GRIPPER_XML = 'robotiq_2f85/2f85.xml'
 
+# End effectors the diagnostic can simulate. `length` is flange to contact point (reach and clearance), `mass` counts
+# against the arm's payload (typical values for the suction tools, which are generic, not one product). The choice
+# depends on what is picked: see the skill's step on choosing the tool.
+TOOLS = {
+    'suction_wand':  dict(kind='suction', length=0.38, mass=0.6, note='long vacuum wand: reaches deep into cells and bins; needs a flat, sealed face'),
+    'suction_cup':   dict(kind='suction', length=0.12, mass=0.4, note='short vacuum cup on the flange: cartons, cases, panels picked from above or the side'),
+    'gripper_2f85':  dict(kind='fingers', length=0.15, mass=0.93, stroke=0.085, payload=5.0, note='Robotiq 2F-85 parallel gripper: parts, tools, bottles up to 85 mm wide; needs room for the fingers',
+                          datasheet='https://blog.robotiq.com/hubfs/Product-sheets/Adaptive%20Grippers/Product-sheet-Adaptive-Grippers-EN.pdf'),
+}
+
+def tool(spec):
+    """The scene's robot.tool with catalog defaults filled in; rejects tools the simulator does not have."""
+    spec = dict(spec or dict(type='suction_wand'))
+    if spec.get('type') not in TOOLS: raise KeyError(f"unknown tool {spec.get('type')!r}; available: {sorted(TOOLS)}")
+    return {**{k: v for k, v in TOOLS[spec['type']].items() if k != 'note'}, **spec}
+
 def menagerie_dir(robot): return ROBOTS[robot]['xml'].split('/')[0] if 'xml' in ROBOTS[robot] else None
 
 def register(entry):

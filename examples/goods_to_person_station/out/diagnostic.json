@@ -256,8 +256,11 @@
   ]
  ],
  "tool": {
+  "kind": "suction",
+  "length": 0.38,
+  "mass": 0.6,
   "type": "suction_wand",
-  "length": 0.38
+  "why": "Goods-to-person items are mostly boxed or bagged, with a flat face, and sit up to 0.4 m deep in narrow cells: a long vacuum wand reaches them without needing room for fingers."
  },
  "cycle": {
   "n_full_cycle": 25,

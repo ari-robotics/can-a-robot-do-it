@@ -35,6 +35,18 @@ The scene was re-simulated on 40 plausible variants drawn from the uncertainty o
 - `tote_dx` — portal column to tote centre, to the left (currently 0.55 ± 0.1 m, correlation -0.30)
 - `pod_gap` — portal plane to pod face (currently 0.1 ± 0.05 m, correlation -0.29)
 
+## Tool
+
+**suction_wand** (suction): long vacuum wand: reaches deep into cells and bins; needs a flat, sealed face.
+
+Why this tool: Goods-to-person items are mostly boxed or bagged, with a flat face, and sit up to 0.4 m deep in narrow cells: a long vacuum wand reaches them without needing room for fingers.
+
+Payload with the heaviest part (1.00 kg) and the tool (0.60 kg):
+
+- UR5e: 1.60 of 5.0 kg
+- UR10e: 1.60 of 12.5 kg
+- CRX-5iA: 1.60 of 5.0 kg
+
 ## Models and assets used
 
 | Robot | Model | Licence | Reach, payload, joint speeds |
@@ -56,3 +68,4 @@ The scene was re-simulated on 40 plausible variants drawn from the uncertainty o
 - No pod was docked in the photos: pod geometry (4 columns, 250 mm cell pitch, 2.3 m high) is assumed from the pods visible in the background.
 - Screen and sensor mast positions are approximate.
 - The step stool is removed for the robot layout.
+- Heaviest item about 1 kg, typical for goods-to-person picking; not measured.

@@ -101,3 +101,16 @@ def test_report_lists_models_and_attributions(fake_assets):
     assert '| UR10e | MuJoCo Menagerie `universal_robots_ur10e`' in text
     assert f'`nvidia/simready-assets/crate_blue_a01@{SR.REVISION[:7]}` | CC-BY-4.0' in text
     assert '- crate_blue_a01, SimReady (nvidia/simready-assets), CC-BY-4.0' in text
+
+def test_tool_catalog_and_checks(fake_assets):
+    from ari_sim.robots import tool, TOOLS
+    from ari_sim.report import tooling
+    assert tool(None)['type'] == 'suction_wand' and tool({'type': 'gripper_2f85'})['stroke'] == 0.085
+    assert tool({'type': 'suction_wand', 'length': 0.5})['length'] == 0.5
+    with pytest.raises(KeyError): tool({'type': 'magnet'})
+    sc = _scene([dict(type='asset', name='part', source='simready:crate_blue_a01', role='item')]); sc['task']['item_mass_kg'] = 12.0
+    res = {'robots': {'UR10e': {}, 'UR5e': {}}, 'tool': dict(tool({'type': 'gripper_2f85', 'why': 'parts have no flat face'}), kind='fingers')}
+    text = '\n'.join(tooling(S.load(sc), res))
+    assert 'Why this tool: parts have no flat face' in text
+    assert '- UR10e: 12.93 of 12.5 kg — **over payload**' in text and "over the gripper's payload" in text
+    assert 'crate_blue_a01' in text                                  # 0.4 m wide on every side but one: too wide for 85 mm

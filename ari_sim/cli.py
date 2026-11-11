@@ -69,6 +69,9 @@ def main(argv=None):
             dj = os.path.join(os.path.dirname(os.path.abspath(a.scene)), 'out', 'diagnostic.json')
             if not os.path.exists(dj): sys.exit('No --base given and no diagnostic.json found: run `ari-sim diagnose` first or pass --base X Y PEDESTAL.')
             bf = json.load(open(dj))['best_fixed']; base = [bf['x'], bf['y'], bf['pedestal']]
+        from .robots import tool as tool_spec
+        if tool_spec(sc.get('robot', {}).get('tool'))['kind'] != 'fingers':
+            print('note: grasp simulates a 2-finger gripper; this scene\'s tool is suction, so these results do not apply to it')
         stats = run_batch(sc, base, a.episodes, a.out, seed=a.seed); print(stats)
 
 if __name__ == '__main__': main()

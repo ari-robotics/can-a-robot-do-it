@@ -12,7 +12,8 @@
   "assumptions": [
     "No pod was docked in the photos: pod geometry (4 columns, 250 mm cell pitch, 2.3 m high) is assumed from the pods visible in the background.",
     "Screen and sensor mast positions are approximate.",
-    "The step stool is removed for the robot layout."
+    "The step stool is removed for the robot layout.",
+    "Heaviest item about 1 kg, typical for goods-to-person picking; not measured."
   ],
   "params": {
     "pod_gap":   {"value": 0.10, "sigma": 0.05, "min": 0.02, "note": "portal plane to pod face"},
@@ -43,11 +44,13 @@
   "task": {
     "description": "Pick one item from a pod cell and drop it into the black tote.",
     "pick_inset": 0.20,
-    "pre_offset": 0.12
+    "pre_offset": 0.12,
+    "item_mass_kg": 1.0
   },
   "robot": {
     "candidates": ["UR5e", "UR10e", "CRX-5iA"],
-    "tool": {"type": "suction_wand", "length": 0.38},
+    "tool": {"type": "suction_wand", "length": 0.38,
+             "why": "Goods-to-person items are mostly boxed or bagged, with a flat face, and sit up to 0.4 m deep in narrow cells: a long vacuum wand reaches them without needing room for fingers."},
     "base_search": {"x": [-0.9, -0.3, 5], "y": [-0.8, -0.4, 3], "pedestal": [0.4, 1.3, 4]},
     "observation_camera": {"pos": [-0.85, -1.25, 2.25], "target": [0.0, 0.25, 1.15], "fovy": 60}
   }

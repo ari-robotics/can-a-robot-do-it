@@ -72,6 +72,7 @@ The agent asks only what the photos cannot tell it, checks its reconstruction ag
 | | |
 |---|---|
 | **Verdict** | Reach validated for a pilot, valid if a few dimensions check out, marginal, or no feasible layout — and then which layout change would fix it |
+| **Tool** | Suction or fingers, why, and the payload margin with the heaviest part |
 | **Robot and base** | The arm that covers the station, where its base goes, how high the pedestal is |
 | **Reach map** | Every pick target, reached or not, with a full collision-free cycle or not |
 | **Cycle time** | Per target, at joint speed limits: a ceiling, said as such |
@@ -82,9 +83,10 @@ The agent asks only what the photos cannot tell it, checks its reconstruction ag
 ## How it works
 
 1. **Perceive.** The agent reads the photos and writes `scene.json`: the workstation as a handful of components (boxes, shelf units, totes, pick and place points). Every estimated dimension is a parameter *with its uncertainty*, tied to a scale reference visible in the photos. The scene is rendered and compared with the photos until they match.
-2. **Diagnose.** Each candidate arm is tried at a grid of base positions and pedestal heights. For the best one, a collision-free path is planned to every pick target (IK, straight-line insertion, RRT-Connect) and timed at joint speed limits.
-3. **Quantify the doubt.** A photo gives geometry to within 10–20 %. The scene is re-simulated on dozens of plausible variants, so the report says how often the layout holds and which dimensions matter most.
-4. **Grasp (experimental).** A Robotiq 2F-85 replaces the suction tool, scanned real-world objects are dropped into the pick cells, and a scripted expert runs with contact physics. Episodes are recorded (image, joints, action) as raw material for imitation learning.
+2. **Choose the tool.** Suction for cartons and anything with a flat sealed face, a 2-finger gripper for parts, tools and bottles. The agent decides from what is picked, asks you when the photos do not settle it, and can run both: on the example, the same arm completes 25 of 32 cells with a suction wand and 12 with fingers.
+3. **Diagnose.** Each candidate arm is tried at a grid of base positions and pedestal heights. For the best one, a collision-free path is planned to every pick target (IK, straight-line insertion, RRT-Connect) and timed at joint speed limits.
+4. **Quantify the doubt.** A photo gives geometry to within 10–20 %. The scene is re-simulated on dozens of plausible variants, so the report says how often the layout holds and which dimensions matter most.
+5. **Grasp (experimental).** A Robotiq 2F-85 replaces the suction tool, scanned real-world objects are dropped into the pick cells, and a scripted expert runs with contact physics. Episodes are recorded (image, joints, action) as raw material for imitation learning.
 
 ## Real objects and real robots, fetched one at a time
 

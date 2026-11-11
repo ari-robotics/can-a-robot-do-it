@@ -3,7 +3,7 @@ import time, numpy as np
 from . import spec as S
 from .build import build, set_base
 from .kin import Kin, move_time
-from .robots import ROBOTS, DEFAULT_CANDIDATES, register
+from .robots import ROBOTS, DEFAULT_CANDIDATES, register, tool as tool_spec
 
 def _evaluate(kin, resolved, robot, tool_len):
     """Per pick target: 'ok' | 'out_of_reach' | 'collision' (needs pre-pose and pick pose). Plus the place status."""
@@ -26,8 +26,8 @@ def _grid(spec_range):
     lo, hi, n = spec_range; return [float(v) for v in np.linspace(lo, hi, int(n))]
 
 def diagnose(sc, n_variants=40, seed=1, log=print):
-    rng = np.random.default_rng(seed); rob = sc.get('robot', {}); tool = rob.get('tool', dict(type='suction_wand', length=0.38))
-    tool_len = float(tool.get('length', 0.38)); bs = rob.get('base_search')
+    rng = np.random.default_rng(seed); rob = sc.get('robot', {}); tool = tool_spec(rob.get('tool'))
+    tool_len = float(tool['length']); bs = rob.get('base_search')
     if not bs: raise S.SceneError('scene["robot"]["base_search"] is required: {"x": [lo, hi, n], "y": [lo, hi, n], "pedestal": [lo, hi, n]}')
     XS, YS, ZS = _grid(bs['x']), _grid(bs['y']), _grid(bs['pedestal']); cands = [register(c) for c in rob.get('candidates', DEFAULT_CANDIDATES)]
     R0 = S.resolve(sc); n = len(R0['picks']); t0 = time.time()
