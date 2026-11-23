@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# ari-sim, ready to run from anywhere: finds the code, installs it once in its own environment, then runs the command.
+# Nothing is asked of the person: no virtual environment to create, no setup step. Everything lives in ~/.cache/ari_sim
+# (override with ARI_SIM_ASSETS) and can be deleted at any time.
+set -euo pipefail
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+CACHE=${ARI_SIM_ASSETS:-$HOME/.cache/ari_sim}
+REPO=${ARI_SIM_REPO:-https://github.com/ari-robotics/can-a-robot-do-it}
+say() { printf '[ari-sim] %s\n' "$*" >&2; }
+
+# 1. The code: this checkout or installed plugin if the skill sits inside one, otherwise a clone in the cache.
+ROOT=$(cd "$HERE/../../../.." && pwd)
+if [ ! -f "$ROOT/ari_sim/cli.py" ]; then
+  ROOT="$CACHE/can-a-robot-do-it"
+  if [ ! -f "$ROOT/ari_sim/cli.py" ]; then
+    command -v git >/dev/null || { say "git is needed to fetch the code: install git, then run this again."; exit 3; }
+    say "fetching the code into $ROOT"; mkdir -p "$CACHE"; git clone -q --depth 1 "$REPO" "$ROOT"
+  fi
+fi
+
+# 2. Its environment, rebuilt only when the code location or its dependencies change.
+VENV="$CACHE/venv"
+STAMP="$ROOT $(cksum < "$ROOT/pyproject.toml")"
+if [ ! -x "$VENV/bin/ari-sim" ] || [ "$(cat "$VENV/.ari_stamp" 2>/dev/null)" != "$STAMP" ]; then
+  say "first run: installing MuJoCo and the Python package (about a minute, once)"
+  mkdir -p "$CACHE"
+  if command -v uv >/dev/null; then
+    [ -x "$VENV/bin/python" ] || uv venv -q --python 3.11 "$VENV"
+    uv pip install -q --python "$VENV/bin/python" -e "$ROOT[simready]"
+  else
+    PY=""
+    for c in python3.13 python3.12 python3.11 python3; do
+      if command -v "$c" >/dev/null && "$c" -c 'import sys; sys.exit(not (3, 11) <= sys.version_info[:2] <= (3, 13))' 2>/dev/null; then PY=$c; break; fi
+    done
+    if [ -z "$PY" ]; then
+      say "Python 3.11 to 3.13 is needed and was not found. The simplest fix is uv, which brings its own Python:"
+      say "  macOS / Linux:  curl -LsSf https://astral.sh/uv/install.sh | sh     (or: brew install uv)"
+      say "Install it, then run this again."; exit 3
+    fi
+    [ -x "$VENV/bin/python" ] || "$PY" -m venv "$VENV"
+    "$VENV/bin/python" -m pip install -q --upgrade pip && "$VENV/bin/python" -m pip install -q -e "$ROOT[simready]"
+  fi
+  printf '%s' "$STAMP" > "$VENV/.ari_stamp"
+fi
+exec "$VENV/bin/ari-sim" "$@"

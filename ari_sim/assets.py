@@ -1,5 +1,5 @@
 """Where robot and object assets live, and how to fetch them."""
-import os, subprocess, random, re, json
+import os, sys, subprocess, random, re, json
 
 HOME = os.environ.get('ARI_SIM_ASSETS', os.path.join(os.path.expanduser('~'), '.cache', 'ari_sim'))
 MENAGERIE = os.path.join(HOME, 'mujoco_menagerie')
@@ -34,7 +34,7 @@ def fetch_robots(robots, gripper=True):
     if not os.path.isdir(os.path.join(MENAGERIE, '.git')): _fetch('https://github.com/google-deepmind/mujoco_menagerie.git', MENAGERIE_COMMIT, MENAGERIE)
     _checkout(MENAGERIE, MENAGERIE_COMMIT, missing); return missing
 
-def setup(n_objects=110, seed=3):
+def setup(n_objects=0, seed=3):
     """Download the default robots and the gripper from MuJoCo Menagerie, and a random subset of Google Scanned Objects (MJCF, CC-BY 4.0).
     Other robots of the catalog are fetched when a scene asks for them."""
     from .robots import DEFAULT_CANDIDATES
@@ -52,7 +52,7 @@ def graspable_objects(max_dim=0.20, min_thin=0.015, max_thin=0.07):
     """Objects from the downloaded subset that fit a shelf cell and an 85 mm parallel gripper. Cached."""
     import mujoco
     cache = os.path.join(GSO, 'meta.json'); root = os.path.join(GSO, 'models')
-    if not os.path.isdir(root): raise FileNotFoundError('No scanned objects found. Run `ari-sim setup` first.')
+    if not os.path.isdir(root): print('[ari-sim] fetching scanned objects for the physics run (about 400 MB, once)', file=sys.stderr); setup(110)
     if os.path.exists(cache): meta = json.load(open(cache))
     else:
         meta = []

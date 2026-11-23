@@ -29,3 +29,5 @@ jobs:
         run: ari-sim check examples/goods_to_person_station/scene.json --out ci_out
       - name: Quick diagnostic on the example
         run: ari-sim diagnose examples/goods_to_person_station/scene.json --out ci_out --variants 2 --no-video
+      - name: The launcher installs itself (what a person's agent runs first)
+        run: .claude/skills/workstation-sim/scripts/ari-sim doctor

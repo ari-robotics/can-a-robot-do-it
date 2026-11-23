@@ -49,24 +49,31 @@ No API key. No CAD. Your agent does the reading; Google's robotics tools do the 
 
 ## Install
 
-### Claude Code
+One sentence to your agent is enough. There is no setup step: the first command the agent runs installs MuJoCo, the Python package and Google's robotics plugin in `~/.cache/ari_sim`, and fetches robot models as they are needed.
+
+### Any agent (Claude Code, Codex, Cursor, Gemini CLI, Antigravity)
+
+Paste this, with your photos attached:
+
+```
+Install https://github.com/ari-robotics/can-a-robot-do-it and tell me whether a robot
+can do this workstation. Task: [what is picked, from where, and where it goes].
+```
+
+The agent clones the repo, reads [`AGENTS.md`](AGENTS.md) and the [skill](.claude/skills/workstation-sim/SKILL.md), and goes from there. You can also clone it yourself, open your agent in the folder and drop the photos in.
+
+### Claude Code, as a plugin
 
 ```
 /plugin marketplace add ari-robotics/can-a-robot-do-it
 /plugin install can-a-robot-do-it@ari-robotics
 ```
 
-### Codex, Cursor, Gemini CLI and other agents
+The skill is then available in every project: share photos of a station anywhere and ask.
 
-Paste this into your agent, with your photos attached:
+### What the machine needs
 
-```
-Clone https://github.com/ari-robotics/can-a-robot-do-it, set it up, and follow
-.claude/skills/workstation-sim/SKILL.md to tell me whether a robot can do this
-workstation. Task: [what is picked, from where, and where it goes].
-```
-
-The skill is a plain [`SKILL.md`](.claude/skills/workstation-sim/SKILL.md): any agent that can read files and run commands can follow it. The first run installs the Python package, fetches Google's robotics plugin at a pinned commit if your agent does not have it yet, and downloads the robot models and scanned objects (~430 MB, once).
+macOS or Linux, `git`, and either [`uv`](https://docs.astral.sh/uv/) or Python 3.11 to 3.13 (with `uv`, no Python is needed at all). `ffmpeg` adds the cycle video. About 500 MB of disk for MuJoCo, Google's plugin and the first robot models; the scanned objects of the physics run (400 MB) come only if that step is used. No API key, no account.
 
 ### Then ask
 
@@ -184,8 +191,7 @@ Components: `box`, `cylinder`, `shelf_unit` (every cell becomes a pick target), 
 What the agent runs, if you want to run it yourself:
 
 ```bash
-pip install -e ".[simready]"                    # MuJoCo 4 with its OpenUSD importer
-ari-sim setup                                   # default robot models + scanned objects, in ~/.cache/ari_sim
+alias ari-sim=.claude/skills/workstation-sim/scripts/ari-sim   # installs itself on first use, in ~/.cache/ari_sim
 ari-sim assets search plastic crate             # SimReady: search, show, get
 ari-sim robots list                             # preset arms; `robots inspect <id>` for a SimReady one
 ari-sim doctor                                  # Google's tools: which are installed, what each is used for

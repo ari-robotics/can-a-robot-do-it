@@ -23,17 +23,18 @@ Which Google tool does what:
 
 Load the Google skill named in a step before doing that step by hand; `ari-sim` already calls its script where a command is given.
 
-## 0. Get the code and the tools
+## 0. Nothing to install by hand
 
-The steps below run from a checkout of the repo. If the current folder has no `ari_sim/`, clone it and install it in a virtual environment with Python 3.11 or later:
-`git clone https://github.com/ari-robotics/can-a-robot-do-it && cd can-a-robot-do-it && pip install -e ".[simready]" && ari-sim setup`
+In every command below, `ari-sim` means the launcher next to this file: `scripts/ari-sim` in this skill's folder. Call it by its full path (or define `alias ari-sim=<this skill's folder>/scripts/ari-sim` in each command). On its first call it installs itself: it finds the code (this checkout or plugin, otherwise a clone in `~/.cache/ari_sim`), builds its own Python environment there, and from then on just runs. Robot models, Google's plugin and library objects are fetched the first time a command needs them. Never create a virtual environment or run pip yourself, and never ask the person to.
 
-`ari-sim setup` fetches Google's plugin at a pinned commit if no agent has installed it (`npx skills add google-deepmind/robotics-antigravity-plugin` and `npx skills add google-deepmind/mujoco` install the same skills for you to load). `ari-sim doctor` lists every tool, what it is used for, and what is missing. Google's standalone scripts run through `uv`.
+Start with `ari-sim doctor` while you read the photos: it triggers the install (about a minute, once), lists Google's tools and says where their `SKILL.md` files are, so you can load one when a step calls for it. If it stops because neither `uv` nor Python 3.11+ is on the machine, it prints the one command that fixes it: show that command to the person, ask before running it, then go on. `ffmpeg` is optional (without it there is no `cycle.mp4`). `ari-sim where` prints the folder of the code: the example scene is `<that folder>/examples/goods_to_person_station/scene.json` and the scene rules are in `<that folder>/ari_sim/perceive.py`.
+
+Work in `runs/<short-name>/` under the person's current folder, never inside the plugin's own folder.
 
 ## 1. Look, then ask only what the images cannot tell you
 
 Read every photo. For a video, pull frames first:
-`python -c "from ari_sim.perceive import frames_from_video as f; print(f('clip.mp4', 8, 'runs/<name>/frames'))"`
+`ari-sim frames clip.mp4 --n 8 --out runs/<name>/frames` (needs `ffmpeg`)
 
 You need one sentence for the task: what is picked, from where, and where it goes. If the person did not say and the images do not make it obvious, ask that one question. Do not ask for dimensions: estimating them, with their uncertainty, is the job.
 
@@ -62,7 +63,7 @@ Ask the person only for facts about the use case that the photos cannot show and
 
 ## 2. Write `runs/<name>/scene.json`
 
-Follow `SCENE_RULES` in `ari_sim/perceive.py` exactly (frame, scale references, params with sigma, component library, assumptions) and use `examples/goods_to_person_station/scene.json` as the format reference. The points that matter most:
+Follow the scene rules exactly: print them with `ari-sim rules` (frame, scale references, params with sigma, component library, assumptions), and use the example scene (see step 0) as the format reference. The points that matter most:
 
 - Every dimension comes from a scale reference you can actually see, measured with `ari-sim measure` where the geometry allows. List them. Never invent one.
 - Every estimated dimension that affects reach is a param with a `sigma`. 10–20 % of the value is normal from one photo.
@@ -78,7 +79,7 @@ Follow `SCENE_RULES` in `ari_sim/perceive.py` exactly (frame, scale references, 
 3. `ari-sim assets get <id>`. Compare its `extent` with your estimate from the photos: if they disagree by more than your sigma, either the asset is the wrong one or your estimate is; say which. Read `warnings` and do not rely on a flagged mass.
 4. Add it as an `asset` component with `"source": "simready:<id>"` (fixture, container or item).
 
-If an object matters to the task and no library holds it, load Google's `blender-creation` skill and model it from the photos as a MuJoCo asset (it needs Blender; `ari-sim doctor` says whether it is installed). Then `ari-sim audit path/to/model.xml --scenarios all` before using it. Without Blender, keep the parametric components and say so.
+If an object matters to the task and no library holds it, load Google's `blender-creation` skill and model it from the photos as a MuJoCo asset (it needs Blender; `ari-sim doctor` says whether it is installed and where the skill is). Then `ari-sim audit path/to/model.xml --scenarios all` before using it. Without Blender, keep the parametric components and say so.
 
 Robots. `ari-sim robots list` shows the presets (reach, payload, joint speeds from datasheets), six- and seven-axis. To try another arm, find it with `ari-sim assets search`, check it with `ari-sim robots inspect <id>`, then add it to `robot.candidates` as `{"name", "source": "simready:<id>", "reach", "payload", "vmax_deg": [one speed per joint, deg/s], "datasheet": "<url>"}`. The robot file carries joint limits but not speeds, reach or payload: take them from the manufacturer's datasheet and cite it. If you cannot find the speeds, do not guess; say the arm could not be timed.
 

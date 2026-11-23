@@ -43,8 +43,9 @@ def path(skill, need=True):
     f = TOOLS[skill]['file']
     for r in _roots():
         if os.path.exists(os.path.join(r, skill, f)): return os.path.join(r, skill)
-    if need: raise FileNotFoundError(f"Google's `{skill}` skill is not installed. Run `ari-sim setup` (it fetches the robotics plugin), "
-                                     f"or `npx skills add google-deepmind/robotics-antigravity-plugin`.")
+    if need:          # no agent installed the skills on this machine: fetch the plugin once, at its pinned commit
+        print("[ari-sim] fetching Google's robotics plugin (once)", file=sys.stderr); fetch()
+        return os.path.join(CACHE, 'plugins', 'robotics', 'skills', skill)
 
 def fetch():
     """The plugin at its pinned commit, in the asset cache. Used when no agent has installed the skills."""

@@ -2,4 +2,4 @@
 import os, sys
 # Headless rendering by default on Linux; must be set before mujoco is imported anywhere.
 if sys.platform.startswith('linux'): os.environ.setdefault('MUJOCO_GL', 'egl')
-__version__ = "0.2.0"
+__version__ = "0.3.0"

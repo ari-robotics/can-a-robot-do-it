@@ -1,6 +1,6 @@
 {
   "name": "can-a-robot-do-it",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Photos of a workstation in, robot feasibility out: which arm, where to put it, what it reaches, how fast, and which dimensions to measure first. Runs on Google DeepMind's robotics plugin: MuJoCo, motion planning, asset audit, MuJoCo Studio.",
   "author": { "name": "ARI — Applied Robotics Institute", "url": "https://arirobotics.ch" },
   "homepage": "https://github.com/ari-robotics/can-a-robot-do-it",

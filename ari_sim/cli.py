@@ -3,7 +3,7 @@ import argparse, json, os, sys, glob
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog='ari-sim', description=__doc__); sub = ap.add_subparsers(dest='cmd', required=True)
-    s = sub.add_parser('setup', help='download robot models and scanned objects'); s.add_argument('--objects', type=int, default=110)
+    s = sub.add_parser('setup', help='download robot models and scanned objects'); s.add_argument('--objects', type=int, default=0, help='also fetch this many scanned objects now (the physics run fetches them when it needs them)')
     c = sub.add_parser('check', help='validate a scene.json and render it'); c.add_argument('scene'); c.add_argument('--out', default='out')
     d = sub.add_parser('diagnose', help='scene.json -> robot choice, reach, cycle time, uncertainty')
     d.add_argument('--variants', type=int, default=40); d.add_argument('--no-video', action='store_true')
@@ -20,6 +20,9 @@ def main(argv=None):
     rc.add_parser('list', help='preset arms with reach, payload and where the model comes from')
     r = rc.add_parser('get', help='download these presets\' models'); r.add_argument('names', nargs='+')
     ri = rc.add_parser('inspect', help='import a SimReady arm and show its joints, limits and flange'); ri.add_argument('id')
+    sub.add_parser('where', help='folder of the code: the example scene and the scene rules are read from there')
+    sub.add_parser('rules', help='how to write scene.json from photos')
+    fr = sub.add_parser('frames', help='evenly spaced frames from a video'); fr.add_argument('video'); fr.add_argument('--n', type=int, default=8); fr.add_argument('--out', default='frames')
     sub.add_parser('doctor', help="which of Google's robotics tools are installed, and what each one is used for")
     au = sub.add_parser('audit', help="Google's mujoco-audit on the rebuilt station (static) or on one asset (physics scenarios)")
     au.add_argument('scene', help='scene.json, or an asset model.xml'); au.add_argument('--out', default='out'); au.add_argument('--scenarios', default='', help="e.g. 'all' or '1,4,5' for an asset model.xml")
@@ -32,16 +35,23 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.cmd == 'setup':
         from . import assets, google
-        if not google.path('motion-planning', need=False): print("fetching Google's robotics plugin into", google.fetch())
+        google.path('motion-planning')
         print('assets in', assets.setup(a.objects)); return
+    if a.cmd == 'where': print(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))); return
+    if a.cmd == 'rules':
+        from .perceive import SCENE_RULES; print(SCENE_RULES); return
+    if a.cmd == 'frames':
+        from .perceive import frames_from_video; print('\n'.join(frames_from_video(a.video, a.n, a.out))); return
     if a.cmd == 'doctor':
-        from . import google; import shutil, importlib.util as iu; rows = google.status(); stage = None
+        from . import google; import shutil, importlib.util as iu; google.path('motion-planning'); rows = google.status(); stage = None
         for r in sorted(rows, key=lambda r: ['perceive', 'rebuild', 'plan', 'execute', 'verify', 'report', 'real'].index(r['stage'])):
             if r['stage'] != stage: stage = r['stage']; print(f'\n{stage}')
             print(f"  {'ok     ' if r['ok'] else 'MISSING'} {r['skill']:26s} {r['use']}")
         import mujoco; print(f"\nMuJoCo {mujoco.__version__}; Studio {'ok' if iu.find_spec('mujoco_studio_wasm') else 'missing (pip install -U mujoco>=4.0.1)'}; uv {'ok' if shutil.which('uv') else 'missing'}; "
                              f"Blender {'ok' if shutil.which('blender') else 'not installed (only needed to model an object no library holds)'}; mujoco_playground {'ok' if iu.find_spec('mujoco_playground') else 'not installed (only needed for the gauntlet and real SO-101 / YAM arms)'}")
-        if any(not r['ok'] for r in rows): print('\nMissing tools: run `ari-sim setup` or `npx skills add google-deepmind/robotics-antigravity-plugin`.'); sys.exit(1)
+        print(f"ffmpeg {'ok' if shutil.which('ffmpeg') else 'not installed (the diagnostic then skips cycle.mp4)'}; git {'ok' if shutil.which('git') else 'MISSING (needed to fetch robot models)'}")
+        print(f"\nGoogle's skills are read from {os.path.dirname(rows[0]['path']) if rows[0]['ok'] else 'nowhere yet'}: load a skill's SKILL.md from there when a step needs it.")
+        if any(not r['ok'] for r in rows) or not shutil.which('git'): sys.exit(1)
         return
     if a.cmd == 'measure':
         from .perceive import measure; print(json.dumps(measure(a.ref, a.point, a.pixel_sigma), indent=1)); return
@@ -106,7 +116,7 @@ def main(argv=None):
         s_ = r['session']; print(f"MuJoCo Studio is running (pid {r['pid']}): open http://127.0.0.1:{s_.get('http_port', 8080)}/\n  workspace: {ws}\n  session:   {json.dumps({k: v for k, v in s_.items() if 'port' in k or 'url' in k})}\n  status:    http://127.0.0.1:{s_['control_port']}/_studio/status\n  log:       {r['log']}"); return
     if a.cmd == 'diagnose':
         from .diagnose import diagnose; from .report import write_all, VERDICT
-        print('Running the diagnostic…'); res = diagnose(sc, n_variants=a.variants); write_all(sc, res, a.out, with_video=not a.no_video)
+        print('Running the diagnostic…'); res = diagnose(sc, n_variants=a.variants); import shutil; write_all(sc, res, a.out, with_video=not a.no_video and bool(shutil.which('ffmpeg')))
         print('\n' + VERDICT[res['verdict']]); print(f"Best: {res['best_robot']} at {res['best_fixed']['x']:.2f}, {res['best_fixed']['y']:.2f}, pedestal {res['best_fixed']['pedestal']:.2f} m "
               f"— {res['best_fixed']['reached']}/{res['n_targets']} targets"); print('Report in', a.out); return
     if a.cmd in ('execute', 'grasp'):
