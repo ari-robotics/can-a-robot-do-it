@@ -1,9 +1,12 @@
 """What the agent needs to read a workstation: the scene-writing rules, and frames from a video.
 
-There is no API call here. The coding agent (through the skill in .claude/skills/) looks at the photos
-and writes scene.json following SCENE_RULES; the simulator compiles it and the agent fixes what breaks.
+The coding agent (through the skill in .claude/skills/) looks at the photos and writes scene.json following
+SCENE_RULES; the simulator compiles it and the agent fixes what breaks. Numbers come from Google's
+`rgb-object-localization` skill: a scale reference seen in a photo gives a pixel-to-metre mapping of its plane
+(`measure`), and, only when the person has set GEMINI_API_KEY themselves, Gemini points at the objects (`detect`).
 """
-import os, subprocess, tempfile
+import os, json, subprocess, tempfile
+import numpy as np
 
 SCENE_RULES = """You are a robotics integration engineer. From photos of a workstation and one sentence describing the task, you write a parametric scene description that a simulator compiles. Your output is used to decide whether a robot arm can do the task, so honest uncertainty matters more than visual polish.
 
@@ -53,3 +56,28 @@ def frames_from_video(path, n=6, outdir=None):
         f = os.path.join(outdir, f'frame_{i:02d}.jpg')
         subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-ss', f'{dur * (i + 0.5) / n:.2f}', '-i', path, '-frames:v', '1', '-q:v', '3', f], check=True); out.append(f)
     return out
+
+def measure(refs, points, pixel_sigma=4.0):
+    """Metric positions on a plane from one photo. refs: >= 4 [u, v, x, y]: pixels of points whose position on the plane
+    is known in metres (the four corners of a Euro tote rim, of a pallet, of an A4 sheet). points: [u, v] pixels to map,
+    on the same plane. Returns for each point x, y in the reference's frame and a sigma: how far the answer moves when
+    every clicked pixel is off by `pixel_sigma`. Uses fit_plane_homography / map_homography_xy_and_yaw."""
+    from . import google; L = google.load('rgb-object-localization')
+    refs = np.asarray(refs, float).reshape(-1, 4); H = L.fit_plane_homography(refs[:, :2], refs[:, 2:])
+    fit = [np.hypot(*(np.array([(r := L.map_homography_xy_and_yaw(u, v, H))['x_m'], r['y_m']]) - [x, y])) for u, v, x, y in refs]
+    rng = np.random.default_rng(0); out = []
+    Hs = [L.fit_plane_homography(refs[:, :2] + rng.normal(0, pixel_sigma, refs[:, :2].shape), refs[:, 2:]) for _ in range(60)]
+    for u, v in np.asarray(points, float).reshape(-1, 2):
+        r = L.map_homography_xy_and_yaw(u, v, H); cloud = np.array([[(q := L.map_homography_xy_and_yaw(u + du, v + dv, Hi))['x_m'], q['y_m']] for Hi in Hs for du, dv in [rng.normal(0, pixel_sigma, 2)]])
+        out.append(dict(u=float(u), v=float(v), x=round(r['x_m'], 4), y=round(r['y_m'], 4), sigma=round(float(np.hypot(*cloud.std(0))), 4)))
+    return dict(points=out, reference_fit_m=round(float(max(fit)), 4))
+
+def detect(image, labels, model='gemini-4-hydrogen'):
+    """Pixels of the named objects in a photo, from Gemini as the `rgb-object-localization` skill calls it. Optional:
+    it runs only if the person exported GEMINI_API_KEY; without it the agent reads the photo itself (the skill's fallback)."""
+    if not os.environ.get('GEMINI_API_KEY'): raise RuntimeError('GEMINI_API_KEY is not set: read the photo yourself and pass pixels to `ari-sim measure` (no key is needed for that)')
+    from google import genai; from PIL import Image
+    im = Image.open(image); W, H = im.size; client = genai.Client()
+    prompt = ('Point at each of these objects: ' + ', '.join(labels) + '. Answer with JSON only: [{"label": str, "point": [y, x], "box_2d": [ymin, xmin, ymax, xmax]}], coordinates normalised to 0-1000.')
+    txt = client.models.generate_content(model=model, contents=[im, prompt]).text; txt = txt[txt.index('['):txt.rindex(']') + 1]
+    return [dict(label=d['label'], u=d['point'][1] * W / 1000, v=d['point'][0] * H / 1000, box=[d['box_2d'][1] * W / 1000, d['box_2d'][0] * H / 1000, d['box_2d'][3] * W / 1000, d['box_2d'][2] * H / 1000]) for d in json.loads(txt)]

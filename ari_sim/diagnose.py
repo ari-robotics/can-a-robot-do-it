@@ -1,45 +1,52 @@
-"""The diagnostic: which robot, where to put it, what it reaches, how fast, and how sure we are."""
+"""The diagnostic: which robot, where to put it, what it reaches, how fast, and how sure we are.
+
+Every candidate is a plan.Cell: Google's motion planner on the arm's own model, in the station rebuilt from the photos."""
 import time, numpy as np
 from . import spec as S
-from .build import build, set_base
-from .kin import Kin, move_time
+from .plan import Cell
 from .robots import ROBOTS, DEFAULT_CANDIDATES, register, tool as tool_spec
 
-def _evaluate(kin, resolved, robot, tool_len):
-    """Per pick target: 'ok' | 'out_of_reach' | 'collision' (needs pre-pose and pick pose). Plus the place status."""
-    m = kin.m; places = resolved['places']
+def _evaluate(cell, resolved, seeds=None, restarts=5):
+    """Per pick target: 'ok' | 'out_of_reach' | 'collision' (needs pre-pose and pick pose). Plus the place status.
+    seeds: {target name: q} from a previous evaluation, which makes a nearby variant almost free to check."""
+    places = resolved['places']; seeds = seeds or {}
     if not places: raise S.SceneError('scene has no place target (add a tote with "place": true or a place_point)')
-    pl = places[0]; qdrop, s_pl = kin.solve(pl['drop'], pl['approach'], tries=14); qpp = None
+    pl = places[0]; qdrop, s_pl = cell.reach(pl['drop'], pl['approach'], seeds.get('__drop'), restarts=max(restarts, 12)); qpp = None
     if qdrop is not None:
-        qpp, s2 = kin.solve(pl['pre'], pl['approach'], [qdrop], tries=4); s_pl = 'ok' if qpp is not None else s2
-    res = []; last = []; base = np.array(m.body_pos[kin.info['base_id']])
+        qpp, s2 = cell.reach(pl['pre'], pl['approach'], qdrop, restarts=4); s_pl = 'ok' if qpp is not None else s2
+    res = []; last = None; reachmax = ROBOTS[cell.robot]['reach'] + float(cell.tool['length']) + 0.25
     for t in resolved['picks']:
-        if np.linalg.norm(t['pick'] - base) > ROBOTS[robot]['reach'] + tool_len + 0.25: res.append(dict(status='out_of_reach')); continue
-        qpre, s1 = kin.solve(t['pre'], t['approach'], last, tries=5)
+        if np.linalg.norm(t['pick'] - cell.base) > reachmax: res.append(dict(status='out_of_reach')); continue
+        seed = seeds.get(t['name'], last)
+        qpre, s1 = cell.reach(t['pre'], t['approach'], seed, restarts)
         if qpre is None: res.append(dict(status=s1)); continue
-        qpick, s2 = kin.solve(t['pick'], t['approach'], [qpre], tries=2)
+        qpick, s2 = cell.reach(t['pick'], t['approach'], qpre, restarts=3)
         if qpick is None: res.append(dict(status=s2)); continue
-        last = [qpre]; res.append(dict(status='ok', qpre=qpre, qpick=qpick))
+        last = qpre; res.append(dict(status='ok', qpre=qpre, qpick=qpick))
     return res, s_pl, (qpp, qdrop)
+
+def _seeds(resolved, res, place):
+    s = {t['name']: r['qpre'] for t, r in zip(resolved['picks'], res) if r['status'] == 'ok'}
+    if place[1] is not None: s['__drop'] = place[1]
+    return s
 
 def _grid(spec_range):
     lo, hi, n = spec_range; return [float(v) for v in np.linspace(lo, hi, int(n))]
 
 def diagnose(sc, n_variants=40, seed=1, log=print):
-    rng = np.random.default_rng(seed); rob = sc.get('robot', {}); tool = tool_spec(rob.get('tool'))
-    tool_len = float(tool['length']); bs = rob.get('base_search')
+    rng = np.random.default_rng(seed); rob = sc.get('robot', {}); tool = tool_spec(rob.get('tool')); bs = rob.get('base_search')
     if not bs: raise S.SceneError('scene["robot"]["base_search"] is required: {"x": [lo, hi, n], "y": [lo, hi, n], "pedestal": [lo, hi, n]}')
     XS, YS, ZS = _grid(bs['x']), _grid(bs['y']), _grid(bs['pedestal']); cands = [register(c) for c in rob.get('candidates', DEFAULT_CANDIDATES)]
     R0 = S.resolve(sc); n = len(R0['picks']); t0 = time.time()
     if n == 0: raise S.SceneError('scene has no pick target (shelf_unit with "pick": true, or pick_point)')
     # 1. every robot at every base position, nominal geometry
-    grid = {}
+    grid = {}; cells = {}
     for robot in cands:
-        m, d, info = build(robot, R0, tool); kin = Kin(m, d, info, rng); rows = []
+        cell = cells[robot] = Cell(robot, tool); rows = []
         for x in XS:
             for y in YS:
                 for z in ZS:
-                    set_base(m, d, info, x, y, z); res, pl, _ = _evaluate(kin, R0, robot, tool_len)
+                    res, pl, _ = _evaluate(cell.place(R0, x, y, z), R0)
                     rows.append(dict(x=x, y=y, z=z, place=pl, status=[r['status'] for r in res]))
         grid[robot] = rows; log(f'  {robot}: {len(rows)} base positions tested ({time.time() - t0:.0f}s)')
     score = lambda g: sum(s == 'ok' for s in g['status']) if g['place'] == 'ok' else 0
@@ -54,36 +61,40 @@ def diagnose(sc, n_variants=40, seed=1, log=print):
     for g in rows:
         k = (g['x'], g['y']); lift.setdefault(k, set())
         if g['place'] == 'ok': lift[k] |= {i for i, s in enumerate(g['status']) if s == 'ok'}
-    lxy = max(lift, key=lambda k: len(lift[k]))
+    lxy = max(lift, key=lambda k: len(lift[k])); cell = cells[best_robot]
     out = dict(scene=sc['name'], n_targets=n, robots=summary, best_robot=best_robot, best_fixed=dict(x=bf['x'], y=bf['y'], pedestal=bf['z'], reached=score(bf), status=bf['status']),
                best_lift=dict(x=lxy[0], y=lxy[1], heights=ZS, reached=len(lift[lxy])), targets=[t['name'] for t in R0['picks']],
-               cells=[(t.get('col'), t.get('row')) for t in R0['picks']], tool=tool)
+               cells=[(t.get('col'), t.get('row')) for t in R0['picks']], tool=cell.tool, dof=cell.pl.dof,
+               planner='Google robotics plugin, motion-planning skill (motion_planner.py)')
     if out['best_fixed']['reached'] == 0:
         out['verdict'] = 'no_feasible_layout'; return out
     # 2. full collision-free cycle + time for every reachable target
-    m, d, info = build(best_robot, R0, tool); kin = Kin(m, d, info, rng); set_base(m, d, info, bf['x'], bf['y'], bf['z'])
-    res, pl, (qpp, qdrop) = _evaluate(kin, R0, best_robot, tool_len); vmax = ROBOTS[best_robot]['vmax']; cyc = []
+    cell.place(R0, bf['x'], bf['y'], bf['z']); res, pl, (qpp, qdrop) = _evaluate(cell, R0, restarts=10); nominal = _seeds(R0, res, (qpp, qdrop)); cyc = []
+    down = cell.stroke(qpp, R0['places'][0]['drop']) if pl == 'ok' else (None, 'place')
+    prev = None
     for t, r in zip(R0['picks'], res):
         if r['status'] != 'ok' or pl != 'ok': cyc.append(dict(name=t['name'], ok=False, why=r['status'] if r['status'] != 'ok' else 'place')); continue
-        qpre = kin.near(r['qpre'], qpp); ins = kin.cart(qpre, t['pre'], t['pick'], t['approach'])
-        path = kin.rrt(np.array(qpp), qpre) if ins else None
-        if not ins or path is None or not kin.seg_free(np.array(qpp), np.array(qdrop)):
-            cyc.append(dict(name=t['name'], ok=False, why='path_blocked')); continue
-        moves = [path, ins, ins[::-1], path[::-1], [np.array(qpp), np.array(qdrop)], [np.array(qdrop), np.array(qpp)]]
-        cyc.append(dict(name=t['name'], ok=True, t=sum(move_time(mv, vmax) for mv in moves) + 0.7, moves=[[q.tolist() for q in mv] for mv in moves], pick=t['pick'].tolist()))
+        done = None
+        for qpre in cell.reach_near(t['pre'], t['approach'], qpp, (r['qpre'], prev))[:2]:      # the posture closest to the drop first
+            ins = cell.stroke(qpre, t['pick'])
+            if ins[0] is None: continue
+            path = cell.move(qpp, qpre)
+            if path[0] is not None: done = (path, ins, qpre); break
+        if done is None or down[0] is None: cyc.append(dict(name=t['name'], ok=False, why='path_blocked')); continue
+        path, ins, prev = done; moves = [path[0], ins[0], ins[0][::-1], path[0][::-1], down[0], down[0][::-1]]
+        cyc.append(dict(name=t['name'], ok=True, t=2 * (path[1] + ins[1] + down[1]) + 0.7, moves=[mv.tolist() for mv in moves], pick=t['pick'].tolist()))
     ts = [c['t'] for c in cyc if c['ok']]
-    out['cycle'] = dict(n_full_cycle=len(ts), mean_s=float(np.mean(ts)) if ts else None, min_s=float(min(ts)) if ts else None, max_s=float(max(ts)) if ts else None, per_target=cyc)
+    out['cycle'] = dict(n_full_cycle=len(ts), mean_s=float(np.mean(ts)) if ts else None, min_s=float(min(ts)) if ts else None, max_s=float(max(ts)) if ts else None, per_target=cyc, dt=0.04)
     log(f'  cycle planning done: {len(ts)}/{n} targets with a full collision-free cycle ({time.time() - t0:.0f}s)')
     # 3. Monte Carlo over what the photos cannot pin down
     mc = []
     for i in range(n_variants):
         vals = S.sample(sc, rng); Ri = S.resolve(sc, vals); nb = max(len(Ri['picks']), 1)
-        mi, di, ii = build(best_robot, Ri, tool); ki = Kin(mi, di, ii, rng)
-        set_base(mi, di, ii, bf['x'], bf['y'], bf['z']); res, plf, _ = _evaluate(ki, Ri, best_robot, tool_len)
+        res, plf, _ = _evaluate(cell.place(Ri, bf['x'], bf['y'], bf['z']), Ri, nominal, restarts=3)
         fx = sum(r['status'] == 'ok' for r in res) / nb if plf == 'ok' else 0.0
         un = set(); anyplace = False
         for z in ZS:
-            set_base(mi, di, ii, lxy[0], lxy[1], z); res, pl2, _ = _evaluate(ki, Ri, best_robot, tool_len)
+            res, pl2, _ = _evaluate(cell.place(Ri, lxy[0], lxy[1], z), Ri, nominal, restarts=3)
             if pl2 == 'ok': anyplace = True; un |= {j for j, r in enumerate(res) if r['status'] == 'ok'}
         mc.append(dict(values=vals, fixed=fx, fixed_place=plf == 'ok', lift=len(un) / nb, lift_place=anyplace))
     keys = [k for k, p in sc['params'].items() if p.get('sigma', 0) > 0]
@@ -94,8 +105,8 @@ def diagnose(sc, n_variants=40, seed=1, log=print):
             y = np.array([c[nm] for c in mc])
             if y.std() > 1e-9: sens[nm] = sorted(((k, float(np.corrcoef(X[:, i], y)[0, 1])) for i, k in enumerate(keys)), key=lambda kv: -abs(kv[1]))[:4]
     fx = np.array([c['fixed'] for c in mc]); lf = np.array([c['lift'] for c in mc])
-    out['uncertainty'] = dict(n=len(mc), fixed=dict(place_fail=int(sum(not c['fixed_place'] for c in mc)), ge90=int((fx >= 0.9).sum()), ge80=int((fx >= 0.8).sum()), median=float(np.median(fx))),
-                              lift=dict(place_fail=int(sum(not c['lift_place'] for c in mc)), ge90=int((lf >= 0.9).sum()), ge80=int((lf >= 0.8).sum()), median=float(np.median(lf))),
+    out['uncertainty'] = dict(n=len(mc), fixed=dict(place_fail=int(sum(not c['fixed_place'] for c in mc)), ge90=int((fx >= 0.9).sum()), ge80=int((fx >= 0.8).sum()), median=float(np.median(fx)) if len(mc) else 0.0),
+                              lift=dict(place_fail=int(sum(not c['lift_place'] for c in mc)), ge90=int((lf >= 0.9).sum()), ge80=int((lf >= 0.8).sum()), median=float(np.median(lf)) if len(mc) else 0.0),
                               sensitivity=sens, samples=[dict(fixed=c['fixed'], lift=c['lift']) for c in mc])
     log(f'  uncertainty run done: {len(mc)} variants ({time.time() - t0:.0f}s)')
     # 4. verdict on reach only — grasp reliability is NOT assessed here

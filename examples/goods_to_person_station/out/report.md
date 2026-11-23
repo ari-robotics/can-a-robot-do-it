@@ -10,14 +10,14 @@ Distribution-centre pick station: a mobile shelf pod docks into a black portal; 
 
 | Robot | Targets reached (drop included) | Best base (x, y, pedestal) | Base positions where the drop is reachable |
 |---|---|---|---|
-| UR5e | 7 / 32 | -0.90, -0.60, 1.30 m | 2 / 60 |
-| UR10e | 30 / 32 | -0.60, -0.60, 1.00 m | 20 / 60 |
-| CRX-5iA | 15 / 32 | -0.60, -0.40, 1.30 m | 9 / 60 |
+| UR5e | 6 / 32 | -0.75, -0.40, 1.30 m | 3 / 60 |
+| UR10e | 27 / 32 | -0.60, -0.80, 1.30 m | 19 / 60 |
+| CRX-5iA | 13 / 32 | -0.60, -0.60, 1.30 m | 8 / 60 |
 
 ## Cycle
 
-- Full collision-free cycle for **25 of 32** targets with UR10e.
-- Cycle time at joint speed limits: mean 6.2 s (min 5.6, max 7.0). This is a ceiling, not a production rate.
+- Full collision-free cycle for **22 of 32** targets with UR10e.
+- Cycle time under joint speed, acceleration and tool speed limits: mean 15.5 s (min 10.1, max 23.3). This is a ceiling, not a production rate.
 
 ## How sure are we
 
@@ -25,15 +25,15 @@ The scene was re-simulated on 40 plausible variants drawn from the uncertainty o
 
 | Layout | Drop unreachable | ≥ 80 % of targets | ≥ 90 % of targets |
 |---|---|---|---|
-| Fixed pedestal | 13 / 40 | 27 | 23 |
-| Vertical axis | 0 / 40 | 40 | 31 |
+| Fixed pedestal | 0 / 40 | 35 | 2 |
+| Vertical axis | 0 / 40 | 23 | 5 |
 
 **Measure on site first** (dimensions that move the result most):
 
-- `tote_rim` — tote rim height (currently 1.12 ± 0.07 m, correlation -0.63)
-- `bin_z0` — bottom of the lowest cell (currently 0.2 ± 0.05 m, correlation +0.37)
-- `tote_dx` — portal column to tote centre, to the left (currently 0.55 ± 0.1 m, correlation -0.30)
-- `pod_gap` — portal plane to pod face (currently 0.1 ± 0.05 m, correlation -0.29)
+- `pod_gap` — portal plane to pod face (currently 0.1 ± 0.05 m, correlation -0.40)
+- `tote_dx` — portal column to tote centre, to the left (currently 0.55 ± 0.1 m, correlation -0.38)
+- `bin_z0` — bottom of the lowest cell (currently 0.2 ± 0.05 m, correlation +0.26)
+- `pod_w` — pod face width (currently 0.95 ± 0.06 m, correlation -0.24)
 
 ## Tool
 
@@ -46,6 +46,13 @@ Payload with the heaviest part (1.00 kg) and the tool (0.60 kg):
 - UR5e: 1.60 of 5.0 kg
 - UR10e: 1.60 of 12.5 kg
 - CRX-5iA: 1.60 of 5.0 kg
+
+## How this was computed
+
+Simulation and planning run on Google DeepMind's robotics plugin (MuJoCo 4.0.1, plugin commit `3dde338`):
+
+- Reach, collisions, paths and cycle times: `motion-planning` (multi-start IK with collision filtering, bidirectional RRT, Cartesian strokes, trajectories limited in joint speed and acceleration and to 1.0 m/s at the tool).
+- Station model: MjSpec, written to the plugin's MuJoCo asset standards (`station model.xml`: visual group 2, collision group 3).
 
 ## Models and assets used
 

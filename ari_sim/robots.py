@@ -1,6 +1,6 @@
 import numpy as np
-# Reach/payload from the manufacturers' datasheets; joint speed limits in rad/s. Six-axis arms only: the planner
-# assumes six joints. A model comes either from MuJoCo Menagerie (`xml`) or from a SimReady robot asset published by
+# Reach/payload from the manufacturers' datasheets; joint speed limits in rad/s, one per joint. Any serial arm works:
+# Google's motion planner reads the joints from the model, so six- and seven-axis arms are planned the same way. A model comes either from MuJoCo Menagerie (`xml`) or from a SimReady robot asset published by
 # its manufacturer (`simready`, read by MuJoCo's OpenUSD importer); both are downloaded only when a scene uses them.
 # SimReady files carry joint limits but not joint speeds, reach or payload: those always come from a datasheet.
 ROBOTS = {
@@ -12,6 +12,8 @@ ROBOTS = {
                     datasheet='https://crx.fanucamerica.com/crx-5ia (reach, payload); https://robotec.org/products/cobots/fanuc-crx-5ia.html (joint speeds)'),
     'Lite6':   dict(xml='ufactory_lite6/lite6.xml',         base='link_base', tip='link6',        reach=0.44,  payload=0.6,  vmax=np.radians([180, 180, 180, 180, 180, 180]),
                     datasheet='https://docs.lite6.ufactory.cc/9.technical_specifications.html'),
+    'FR3':     dict(xml='franka_fr3/fr3.xml',               base='base',      tip='fr3_link7',    reach=0.855, payload=3.0,  vmax=np.array([2.62, 2.62, 2.62, 2.62, 5.26, 4.18, 5.26]),
+                    datasheet='https://frankarobotics.github.io/docs/robot_specifications.html (seven axes)'),
     'CRX-10iA': dict(simready='FANUC-CORPORATION/SimReady-Assets/crx10ia/simready_usd/crx10ia.usd@449b304714f21f81e552423fd4f6ea3a821c94c2',
                      reach=1.249, payload=10.0, vmax=np.radians([120, 120, 180, 180, 180, 180]),
                      datasheet='https://crx.fanucamerica.com/crx-10ia (reach, payload); https://flowntro.com/robots/crx-10ia (joint speeds)'),
@@ -49,7 +51,7 @@ def menagerie_dir(robot): return ROBOTS[robot]['xml'].split('/')[0] if 'xml' in 
 
 def register(entry):
     """A candidate written in the scene: a preset name, or {"name", "source": "simready:<id>", "reach", "payload",
-    "vmax_deg": [6 values], "datasheet": url}. The agent finds the arm with `ari-sim assets search` and the numbers in
+    "vmax_deg": [one per axis], "datasheet": url}. The agent finds the arm with `ari-sim assets search` and the numbers in
     the manufacturer's datasheet; nothing here is guessed."""
     if isinstance(entry, str):
         if entry not in ROBOTS: raise KeyError(f'unknown robot {entry!r}; presets: {sorted(ROBOTS)}, or describe one from SimReady (see robots.register)')
@@ -57,7 +59,7 @@ def register(entry):
     miss = [k for k in ('name', 'source', 'reach', 'payload', 'vmax_deg', 'datasheet') if k not in entry]
     if miss: raise KeyError(f'robot candidate {entry.get("name", entry)!r} is missing {miss}')
     if not str(entry['source']).startswith('simready:'): raise KeyError(f'robot source must be "simready:<id>", got {entry["source"]!r}')
-    if len(entry['vmax_deg']) != 6: raise KeyError(f'{entry["name"]}: vmax_deg needs six joint speeds (deg/s); only six-axis arms are supported')
+    if len(entry['vmax_deg']) not in (6, 7): raise KeyError(f'{entry["name"]}: vmax_deg needs one joint speed (deg/s) per axis: six or seven values')
     ROBOTS[entry['name']] = dict(simready=entry['source'].split(':', 1)[1], reach=float(entry['reach']), payload=float(entry['payload']),
                                  vmax=np.radians(np.asarray(entry['vmax_deg'], float)), datasheet=entry['datasheet'])
     return entry['name']

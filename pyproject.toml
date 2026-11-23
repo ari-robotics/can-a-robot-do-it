@@ -4,22 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ari-sim"
-version = "0.1.0"
-description = "Photos of a workstation -> robot simulation -> engineering diagnostic"
+version = "0.2.0"
+description = "Photos of a workstation -> robot simulation -> engineering diagnostic, on Google DeepMind's robotics plugin"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "ARI — Applied Robotics Institute" }]
 keywords = ["robotics", "mujoco", "robot-simulation", "cobot", "workcell", "feasibility", "claude-code"]
 requires-python = ">=3.11"
-dependencies = ["mujoco>=4.0", "numpy", "pillow"]
+dependencies = ["mujoco>=4.0.1", "numpy", "pillow", "opencv-python-headless"]
 
 [project.urls]
 Homepage = "https://github.com/ari-robotics/can-a-robot-do-it"
 Organization = "https://arirobotics.ch"
 
 [project.optional-dependencies]
-simready = ["mujoco[usd]>=4.0"]
+simready = ["mujoco[usd]>=4.0.1"]
+gemini = ["google-genai"]
 dev = ["pytest"]
 
 [project.scripts]
