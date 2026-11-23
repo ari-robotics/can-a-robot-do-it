@@ -72,22 +72,22 @@ def test_asset_errors(fake_assets):
 
 def test_asset_mesh_compiles(fake_assets):
     if not os.path.isdir(os.path.join(assets.MENAGERIE, menagerie_dir('UR10e'))): pytest.skip('robot models not downloaded (ari-sim setup)')
-    from ari_sim.build import build
+    from ari_sim import build
     sc = _scene([dict(type='asset', name='crate', source='simready:crate_blue_a01', role='container', pos=[-1.2, 0.3, 0.87])])
-    m, d, info = build('UR10e', S.resolve(S.load(sc)))
-    assert m.geom('env_crate').contype == 0 and m.nmesh >= 1
+    from ari_sim.robots import tool; m, d, info = build.scene('UR10e', S.resolve(S.load(sc)), tool(None))
+    assert m.geom('crate_visual').contype == 0 and m.geom('crate_visual').group == 2 and m.nmesh >= 1
 
 def test_robot_catalog_and_scene_robots():
     from ari_sim.robots import register
     assert set(DEFAULT_CANDIDATES) <= set(ROBOTS)
     for k, r in ROBOTS.items():
-        assert {'reach', 'payload', 'vmax'} <= set(r) and len(r['vmax']) == 6, k
+        assert {'reach', 'payload', 'vmax'} <= set(r) and len(r['vmax']) in (6, 7), k
         assert ('xml' in r and {'base', 'tip'} <= set(r) and menagerie_dir(k) == r['xml'].split('/')[0]) or ('simready' in r and 'datasheet' in r), k
     arm = dict(name='Test arm', source='simready:FANUC-CORPORATION/SimReady-Assets/crx10ia_l/simready_usd/crx10ia_l.usd@' + 'c' * 40,
                reach=1.418, payload=10, vmax_deg=[120] * 6, datasheet='https://example.com/datasheet')
     assert register(arm) == 'Test arm' and ROBOTS['Test arm']['vmax'][0] == pytest.approx(np.radians(120))
     assert register('UR10e') == 'UR10e'
-    with pytest.raises(KeyError): register(dict(arm, datasheet=None) | {'vmax_deg': [120] * 7})
+    with pytest.raises(KeyError): register(dict(arm, datasheet=None) | {'vmax_deg': [120] * 5})
     with pytest.raises(KeyError): register({k: v for k, v in arm.items() if k != 'datasheet'})
     with pytest.raises(KeyError): register('R2-D2')
     with pytest.raises(KeyError): assets.fetch_robots(['R2-D2'])

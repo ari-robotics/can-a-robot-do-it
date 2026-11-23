@@ -1,0 +1,118 @@
+<mujoco model="goods_to_person_pick_station">
+  <compiler angle="radian"/>
+
+  <default>
+    <default class="goods_to_person_pick_station">
+      <default class="visual">
+        <geom contype="0" conaffinity="0" group="2" density="0"/>
+      </default>
+      <default class="collision">
+        <geom condim="4" group="3" friction="0.8 0.02 0.005" solref="0.005" rgba="0.2 0.75 0.35 0.5"/>
+      </default>
+    </default>
+  </default>
+
+  <worldbody>
+    <body name="goods_to_person_pick_station">
+      <geom name="portal_left_visual" class="visual" size="0.08 0.13 1.25" pos="-0.63 0 1.25" type="box" rgba="0.07 0.07 0.07 1"/>
+      <geom name="portal_left_col" class="collision" size="0.08 0.13 1.25" pos="-0.63 0 1.25" type="box" mass="1"/>
+      <geom name="portal_right_visual" class="visual" size="0.08 0.13 1.25" pos="0.63 0 1.25" type="box" rgba="0.07 0.07 0.07 1"/>
+      <geom name="portal_right_col" class="collision" size="0.08 0.13 1.25" pos="0.63 0 1.25" type="box" mass="1"/>
+      <geom name="portal_beam_visual" class="visual" size="0.71 0.13 0.06" pos="0 0 2.56" type="box" rgba="0.07 0.07 0.07 1"/>
+      <geom name="portal_beam_col" class="collision" size="0.71 0.13 0.06" pos="0 0 2.56" type="box" mass="1"/>
+      <geom name="pod_back_visual" class="visual" size="0.475 0.3 1.15" pos="0 0.8 1.15" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_back_col" class="collision" size="0.475 0.3 1.15" pos="0 0.8 1.15" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="pod_sideL_visual" class="visual" size="0.008 0.2 1.15" pos="-0.475 0.3 1.15" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_sideL_col" class="collision" size="0.008 0.2 1.15" pos="-0.475 0.3 1.15" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="pod_sideR_visual" class="visual" size="0.008 0.2 1.15" pos="0.475 0.3 1.15" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_sideR_col" class="collision" size="0.008 0.2 1.15" pos="0.475 0.3 1.15" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="pod_div1_visual" class="visual" size="0.004 0.2 1" pos="-0.2375 0.3 1.2" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_div1_col" class="collision" size="0.004 0.2 1" pos="-0.2375 0.3 1.2" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="pod_div2_visual" class="visual" size="0.004 0.2 1" pos="0 0.3 1.2" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_div2_col" class="collision" size="0.004 0.2 1" pos="0 0.3 1.2" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="pod_div3_visual" class="visual" size="0.004 0.2 1" pos="0.2375 0.3 1.2" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_div3_col" class="collision" size="0.004 0.2 1" pos="0.2375 0.3 1.2" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="pod_shelf0_visual" class="visual" size="0.475 0.2 0.006" pos="0 0.3 0.2" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_shelf0_col" class="collision" size="0.475 0.2 0.006" pos="0 0.3 0.2" type="box" mass="1"/>
+      <geom name="pod_shelf1_visual" class="visual" size="0.475 0.2 0.006" pos="0 0.3 0.45" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_shelf1_col" class="collision" size="0.475 0.2 0.006" pos="0 0.3 0.45" type="box" mass="1"/>
+      <geom name="pod_shelf2_visual" class="visual" size="0.475 0.2 0.006" pos="0 0.3 0.7" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_shelf2_col" class="collision" size="0.475 0.2 0.006" pos="0 0.3 0.7" type="box" mass="1"/>
+      <geom name="pod_shelf3_visual" class="visual" size="0.475 0.2 0.006" pos="0 0.3 0.95" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_shelf3_col" class="collision" size="0.475 0.2 0.006" pos="0 0.3 0.95" type="box" mass="1"/>
+      <geom name="pod_shelf4_visual" class="visual" size="0.475 0.2 0.006" pos="0 0.3 1.2" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_shelf4_col" class="collision" size="0.475 0.2 0.006" pos="0 0.3 1.2" type="box" mass="1"/>
+      <geom name="pod_shelf5_visual" class="visual" size="0.475 0.2 0.006" pos="0 0.3 1.45" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_shelf5_col" class="collision" size="0.475 0.2 0.006" pos="0 0.3 1.45" type="box" mass="1"/>
+      <geom name="pod_shelf6_visual" class="visual" size="0.475 0.2 0.006" pos="0 0.3 1.7" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_shelf6_col" class="collision" size="0.475 0.2 0.006" pos="0 0.3 1.7" type="box" mass="1"/>
+      <geom name="pod_shelf7_visual" class="visual" size="0.475 0.2 0.006" pos="0 0.3 1.95" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_shelf7_col" class="collision" size="0.475 0.2 0.006" pos="0 0.3 1.95" type="box" mass="1"/>
+      <geom name="pod_shelf8_visual" class="visual" size="0.475 0.2 0.006" pos="0 0.3 2.2" type="box" rgba="0.95 0.8 0.15 1"/>
+      <geom name="pod_shelf8_col" class="collision" size="0.475 0.2 0.006" pos="0 0.3 2.2" type="box" mass="1"/>
+      <geom name="tote_bottom_visual" class="visual" size="0.3 0.2 0.01" pos="-1.26 -0.35 0.81" type="box" rgba="0.07 0.07 0.07 1"/>
+      <geom name="tote_bottom_col" class="collision" size="0.3 0.2 0.01" pos="-1.26 -0.35 0.81" type="box" mass="1"/>
+      <geom name="tote_x-1_visual" class="visual" size="0.008 0.2 0.16" pos="-1.56 -0.35 0.96" type="box" rgba="0.07 0.07 0.07 1"/>
+      <geom name="tote_x-1_col" class="collision" size="0.008 0.2 0.16" pos="-1.56 -0.35 0.96" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="tote_y-1_visual" class="visual" size="0.3 0.008 0.16" pos="-1.26 -0.55 0.96" type="box" rgba="0.07 0.07 0.07 1"/>
+      <geom name="tote_y-1_col" class="collision" size="0.3 0.008 0.16" pos="-1.26 -0.55 0.96" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="tote_x1_visual" class="visual" size="0.008 0.2 0.16" pos="-0.96 -0.35 0.96" type="box" rgba="0.07 0.07 0.07 1"/>
+      <geom name="tote_x1_col" class="collision" size="0.008 0.2 0.16" pos="-0.96 -0.35 0.96" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="tote_y1_visual" class="visual" size="0.3 0.008 0.16" pos="-1.26 -0.15 0.96" type="box" rgba="0.07 0.07 0.07 1"/>
+      <geom name="tote_y1_col" class="collision" size="0.3 0.008 0.16" pos="-1.26 -0.15 0.96" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="tote_red_bottom_visual" class="visual" size="0.3 0.2 0.01" pos="-1.26 -0.8 0.81" type="box" rgba="0.85 0.13 0.1 1"/>
+      <geom name="tote_red_bottom_col" class="collision" size="0.3 0.2 0.01" pos="-1.26 -0.8 0.81" type="box" mass="1"/>
+      <geom name="tote_red_x-1_visual" class="visual" size="0.008 0.2 0.16" pos="-1.56 -0.8 0.96" type="box" rgba="0.85 0.13 0.1 1"/>
+      <geom name="tote_red_x-1_col" class="collision" size="0.008 0.2 0.16" pos="-1.56 -0.8 0.96" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="tote_red_y-1_visual" class="visual" size="0.3 0.008 0.16" pos="-1.26 -1 0.96" type="box" rgba="0.85 0.13 0.1 1"/>
+      <geom name="tote_red_y-1_col" class="collision" size="0.3 0.008 0.16" pos="-1.26 -1 0.96" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="tote_red_x1_visual" class="visual" size="0.008 0.2 0.16" pos="-0.96 -0.8 0.96" type="box" rgba="0.85 0.13 0.1 1"/>
+      <geom name="tote_red_x1_col" class="collision" size="0.008 0.2 0.16" pos="-0.96 -0.8 0.96" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="tote_red_y1_visual" class="visual" size="0.3 0.008 0.16" pos="-1.26 -0.6 0.96" type="box" rgba="0.85 0.13 0.1 1"/>
+      <geom name="tote_red_y1_col" class="collision" size="0.3 0.008 0.16" pos="-1.26 -0.6 0.96" type="box" rgba="0.25 0.55 0.9 0.45" mass="1"/>
+      <geom name="tote_rack_visual" class="visual" size="0.36 0.5 0.4" pos="-1.26 -0.57 0.4" type="box" rgba="0.5 0.53 0.55 1"/>
+      <geom name="tote_rack_col" class="collision" size="0.36 0.5 0.4" pos="-1.26 -0.57 0.4" type="box" mass="1"/>
+      <geom name="work_table_visual" class="visual" size="0.42 0.5 0.39" pos="-1.21 -1.6 0.39" type="box" rgba="0.62 0.64 0.66 1"/>
+      <geom name="work_table_col" class="collision" size="0.42 0.5 0.39" pos="-1.21 -1.6 0.39" type="box" mass="1"/>
+      <geom name="sensor_mast_visual" class="visual" size="0.03 0.03 1.2" pos="-0.81 -0.22 1.2" type="box" rgba="0.5 0.53 0.55 1"/>
+      <geom name="sensor_mast_col" class="collision" size="0.03 0.03 1.2" pos="-0.81 -0.22 1.2" type="box" mass="1"/>
+      <geom name="camera_visual" class="visual" size="0.1 0.05 0.04" pos="-0.81 -0.22 2.42" type="box" rgba="0.07 0.07 0.07 1"/>
+      <geom name="camera_col" class="collision" size="0.1 0.05 0.04" pos="-0.81 -0.22 2.42" type="box" mass="1"/>
+      <geom name="touch_screen_visual" class="visual" size="0.25 0.02 0.15" pos="-0.79 -0.3 1.5" type="box" rgba="0.9 0.9 0.95 1"/>
+      <geom name="touch_screen_col" class="collision" size="0.25 0.02 0.15" pos="-0.79 -0.3 1.5" type="box" mass="1"/>
+      <site name="pod_c1r1_pick_site" size="0.02" pos="-0.35625 0.3 0.325" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c2r1_pick_site" size="0.02" pos="-0.11875 0.3 0.325" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c3r1_pick_site" size="0.02" pos="0.11875 0.3 0.325" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c4r1_pick_site" size="0.02" pos="0.35625 0.3 0.325" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c1r2_pick_site" size="0.02" pos="-0.35625 0.3 0.575" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c2r2_pick_site" size="0.02" pos="-0.11875 0.3 0.575" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c3r2_pick_site" size="0.02" pos="0.11875 0.3 0.575" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c4r2_pick_site" size="0.02" pos="0.35625 0.3 0.575" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c1r3_pick_site" size="0.02" pos="-0.35625 0.3 0.825" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c2r3_pick_site" size="0.02" pos="-0.11875 0.3 0.825" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c3r3_pick_site" size="0.02" pos="0.11875 0.3 0.825" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c4r3_pick_site" size="0.02" pos="0.35625 0.3 0.825" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c1r4_pick_site" size="0.02" pos="-0.35625 0.3 1.075" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c2r4_pick_site" size="0.02" pos="-0.11875 0.3 1.075" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c3r4_pick_site" size="0.02" pos="0.11875 0.3 1.075" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c4r4_pick_site" size="0.02" pos="0.35625 0.3 1.075" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c1r5_pick_site" size="0.02" pos="-0.35625 0.3 1.325" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c2r5_pick_site" size="0.02" pos="-0.11875 0.3 1.325" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c3r5_pick_site" size="0.02" pos="0.11875 0.3 1.325" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c4r5_pick_site" size="0.02" pos="0.35625 0.3 1.325" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c1r6_pick_site" size="0.02" pos="-0.35625 0.3 1.575" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c2r6_pick_site" size="0.02" pos="-0.11875 0.3 1.575" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c3r6_pick_site" size="0.02" pos="0.11875 0.3 1.575" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c4r6_pick_site" size="0.02" pos="0.35625 0.3 1.575" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c1r7_pick_site" size="0.02" pos="-0.35625 0.3 1.825" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c2r7_pick_site" size="0.02" pos="-0.11875 0.3 1.825" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c3r7_pick_site" size="0.02" pos="0.11875 0.3 1.825" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c4r7_pick_site" size="0.02" pos="0.35625 0.3 1.825" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c1r8_pick_site" size="0.02" pos="-0.35625 0.3 2.075" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c2r8_pick_site" size="0.02" pos="-0.11875 0.3 2.075" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c3r8_pick_site" size="0.02" pos="0.11875 0.3 2.075" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="pod_c4r8_pick_site" size="0.02" pos="0.35625 0.3 2.075" group="4" rgba="0.95 0.25 0.25 0.35"/>
+      <site name="tote_place_site" size="0.03" pos="-1.26 -0.35 1.2" group="4" rgba="0.15 0.8 0.85 0.3"/>
+    </body>
+  </worldbody>
+</mujoco>

@@ -2,8 +2,8 @@
 import os, json, subprocess, numpy as np, mujoco
 from PIL import Image, ImageDraw, ImageFont
 from . import spec as S, assets
-from .build import build, set_base, scene_view, render
-from .kin import move_time, along
+from . import build as B
+from .build import scene_view, render
 from .robots import ROBOTS, TOOLS
 
 INK = (17, 17, 17); BLUE = (47, 84, 255); MUT = (95, 97, 94); LINE = (212, 211, 204); SIL = (184, 187, 184); PAPER = (242, 241, 237)
@@ -53,14 +53,19 @@ def figure(sc, res, path):
         if s: d.text((X1, 800), 'Measure on site first: ' + ', '.join(k for k, _ in s[:2]), fill=INK, font=_font(18, True))
     im.save(path)
 
+def _at(traj, s):
+    """Configuration at fraction s of a trajectory sampled at a fixed period."""
+    P = np.asarray(traj); x = s * (len(P) - 1); i = min(int(x), len(P) - 2) if len(P) > 1 else 0
+    return P[i] + (P[i + 1] - P[i]) * (x - i) if len(P) > 1 else P[0]
+
 def video(sc, res, path, n_show=3, w=1280, h=720, fps=30):
-    """Real-time playback of full cycles at joint speed limits (an upper bound on real speed)."""
-    R0 = S.resolve(sc); bf = res['best_fixed']; robot = res['best_robot']; m, d, info = build(robot, R0, res['tool']); set_base(m, d, info, bf['x'], bf['y'], bf['pedestal'])
-    good = [c for c in res['cycle']['per_target'] if c['ok']]
+    """Real-time playback of the planned cycles: the trajectories are the planner's, timed at joint speed limits."""
+    R0 = S.resolve(sc); bf = res['best_fixed']; robot = res['best_robot']; m, d, info = B.scene(robot, R0, res['tool'], (bf['x'], bf['y'], bf['pedestal']), name=sc['name'])
+    good = [c for c in res['cycle']['per_target'] if c['ok']]; dt = res['cycle'].get('dt', 0.04); qa = info['qadr']
     if not good: return False
     idx = np.unique(np.linspace(0, len(good) - 1, n_show).astype(int)); sel = [good[i] for i in idx]
     view = scene_view(R0); ren = mujoco.Renderer(m, h, w); cam = mujoco.MjvCamera(); cam.lookat[:] = view['lookat']; cam.distance = view['dist']; cam.azimuth = 112; cam.elevation = -14
-    fb, fs = _font(30, True), _font(20, mono=True); tmp = path.replace('.mp4', '.part.mp4'); site = info['tip_site']; vmax = ROBOTS[robot]['vmax']
+    fb, fs = _font(30, True), _font(20, mono=True); tmp = path.replace('.mp4', '.part.mp4'); site = info['tip_site']
     ff = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{w}x{h}', '-r', str(fps), '-i', '-',
                            '-c:v', 'libx264', '-crf', '19', '-preset', 'medium', '-pix_fmt', 'yuv420p', tmp], stdin=subprocess.PIPE)
     pl = R0['places'][0]; n_drop = 0
@@ -69,17 +74,17 @@ def video(sc, res, path, n_show=3, w=1280, h=720, fps=30):
         dr.text((40, 34), f"{sc['name']} · workstation diagnostic", fill=INK, font=fb)
         dr.text((40, 78), f"{robot}, {bf['pedestal']:.1f} m pedestal · scene rebuilt from photos · simulation, not a measurement", fill=MUT, font=fs)
         dr.text((40, h - 76), label, fill=BLUE, font=fb); dr.text((40, h - 38), sub, fill=MUT, font=fs); ff.stdin.write(im.tobytes())
-    d.qpos[:6] = sel[0]['moves'][0][0]; d.mocap_pos[info['item']] = [0, 0, -1]
+    d.qpos[qa] = sel[0]['moves'][0][0]; d.mocap_pos[info['item']] = [0, 0, -1]
     for _ in range(15): frame('Pick and place', '')
     for c in sel:
         lab = f"{c['name']}  ·  cycle ≈ {c['t']:.1f} s"; carried = False
         d.mocap_pos[info['item']] = np.array(c['pick']) - np.array([0, 0, 0.05])
         for mi, mv in enumerate(c['moves']):
-            T = max(move_time(mv, vmax), 0.2); nf = max(int(round(T * fps)), 2)
+            nf = max(int(round((len(mv) - 1) * dt * fps)), 2)
             for k in range(1, nf + 1):
-                s = k / nf; s = s * s * (3 - 2 * s); d.qpos[:6] = along(mv, s); mujoco.mj_forward(m, d)
+                d.qpos[qa] = _at(mv, k / nf); mujoco.mj_forward(m, d)
                 if carried: d.mocap_pos[info['item']] = d.site_xpos[site] + d.site_xmat[site].reshape(3, 3)[:, 2] * 0.03
-                frame(lab, 'collision-free path, joint speed limits')
+                frame(lab, 'collision-free path from Google\'s motion planner, joint speed limits')
             if mi == 1: carried = True; [frame(lab, 'grip') for _ in range(int(0.4 * fps))]
             if mi == 4:
                 carried = False; d.mocap_pos[info['item']] = pl['drop'] - np.array([0.14 - 0.14 * n_drop, 0, 0.35]); n_drop += 1
@@ -123,6 +128,18 @@ def tooling(sc, res):
         L += ['', f"Parts wider than the {t['stroke'] * 1000:.0f} mm stroke on every side but one: {', '.join(wide)}." if wide else f"Every part fits the {t['stroke'] * 1000:.0f} mm stroke on at least one side."]
     return L
 
+def engine(res):
+    """Which of Google's tools produced what, so a reader can rerun or challenge any number."""
+    from . import google
+    L = ['', '## How this was computed', '', "Simulation and planning run on Google DeepMind's robotics plugin (MuJoCo "
+         f"{mujoco.__version__}, plugin commit `{google.COMMIT[:7]}`):", '']
+    L += ['- Reach, collisions, paths and cycle times: `motion-planning` (multi-start IK with collision filtering, bidirectional RRT, Cartesian strokes, '
+          f"trajectories limited in joint speed and acceleration and to {__import__('ari_sim.plan').plan.TCP_SPEED:.1f} m/s at the tool).",
+          '- Station model: MjSpec, written to the plugin\'s MuJoCo asset standards (`station model.xml`: visual group 2, collision group 3).']
+    for k, title in (('audit', 'Station audit (`mujoco-audit`)'), ('execute', 'Physics execution (`iteration` rules: success measured after release and settle)'), ('robust', 'Perturbation tiers (after `sim2real-gauntlet`)')):
+        if res.get(k): L.append(f"- {title}: {res[k]}")
+    return L
+
 def provenance(sc, res):
     """Where every robot model and real object came from, its licence, and the attribution it requires."""
     from .robots import menagerie_dir
@@ -158,7 +175,7 @@ def markdown(sc, res, path):
     c = res.get('cycle')
     if c and c.get('mean_s'):
         L += ['', '## Cycle', '', f"- Full collision-free cycle for **{c['n_full_cycle']} of {res['n_targets']}** targets with {res['best_robot']}.",
-              f"- Cycle time at joint speed limits: mean {c['mean_s']:.1f} s (min {c['min_s']:.1f}, max {c['max_s']:.1f}). This is a ceiling, not a production rate."]
+              f"- Cycle time under joint speed, acceleration and tool speed limits: mean {c['mean_s']:.1f} s (min {c['min_s']:.1f}, max {c['max_s']:.1f}). This is a ceiling, not a production rate."]
     u = res.get('uncertainty')
     if u:
         f, l = u['fixed'], u['lift']
@@ -170,6 +187,7 @@ def markdown(sc, res, path):
             L += ['', '**Measure on site first** (dimensions that move the result most):', '']
             for k, r in s: L.append(f"- `{k}` — {sc['params'][k].get('note', '')} (currently {sc['params'][k]['value']} ± {sc['params'][k].get('sigma', 0)} m, correlation {r:+.2f})")
     L += tooling(sc, res)
+    L += engine(res)
     L += provenance(sc, res)
     if sc.get('scale_references'): L += ['', '## Scale references used', ''] + [f'- {x}' for x in sc['scale_references']]
     if sc.get('assumptions'): L += ['', '## Assumptions', ''] + [f'- {x}' for x in sc['assumptions']]
@@ -178,9 +196,12 @@ def markdown(sc, res, path):
 def write_all(sc, res, outdir, with_video=True):
     os.makedirs(outdir, exist_ok=True)
     slim = json.loads(json.dumps(res, default=lambda o: o.tolist() if hasattr(o, 'tolist') else str(o)))
+    bf = res['best_fixed']; paths = [dict(name=c['name'], t=c['t'], q=[q for mv in c['moves'] for q in mv]) for c in res.get('cycle', {}).get('per_target', []) if c['ok']]
+    json.dump(dict(robot=res['best_robot'], tool=slim['tool'], base=[bf['x'], bf['y'], bf['pedestal']], dt=res.get('cycle', {}).get('dt', 0.04), targets=paths), open(os.path.join(outdir, 'cycle_paths.json'), 'w'))
     for c in slim.get('cycle', {}).get('per_target', []): c.pop('moves', None)
     json.dump(slim, open(os.path.join(outdir, 'diagnostic.json'), 'w'), indent=1)
     markdown(sc, res, os.path.join(outdir, 'report.md')); figure(sc, res, os.path.join(outdir, 'diagnostic.png'))
-    R0 = S.resolve(sc); robot = res['best_robot']; m, d, info = build(robot, R0, res['tool']); bf = res['best_fixed']; set_base(m, d, info, bf['x'], bf['y'], bf['pedestal'])
+    R0 = S.resolve(sc); robot = res['best_robot']; bf = res['best_fixed']; m, d, info = B.scene(robot, R0, res['tool'], (bf['x'], bf['y'], bf['pedestal']), name=sc['name'])
     v = scene_view(R0); Image.fromarray(np.hstack([render(m, d, v, 960, 720, az=118), render(m, d, v, 960, 720, az=62)])).save(os.path.join(outdir, 'scene.png'))
+    B.station(R0, sc['name'], outdir)
     if with_video and res.get('cycle', {}).get('n_full_cycle'): video(sc, res, os.path.join(outdir, 'cycle.mp4'))

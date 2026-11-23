@@ -6,7 +6,7 @@
     {
       "name": "can-a-robot-do-it",
       "source": "./",
-      "description": "Photos of a workstation in, robot feasibility out: which arm, where, how fast, what to measure first.",
+      "description": "Photos of a workstation in, robot feasibility out: which arm, where, how fast, what to measure first. Built on Google DeepMind's robotics plugin.",
       "category": "robotics"
     }
   ]

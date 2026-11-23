@@ -19,11 +19,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install
         run: pip install -e ".[simready,dev]"
-      - name: Robot models
+      - name: Robot models and Google's robotics plugin
         run: ari-sim setup --objects 0
+      - name: Every Google tool is found
+        run: ari-sim doctor
       - name: Tests
         run: pytest -q
       - name: Example scene compiles and renders
         run: ari-sim check examples/goods_to_person_station/scene.json --out ci_out
       - name: Quick diagnostic on the example
         run: ari-sim diagnose examples/goods_to_person_station/scene.json --out ci_out --variants 2 --no-video
+      - name: The launcher installs itself (what a person's agent runs first)
+        run: .claude/skills/workstation-sim/scripts/ari-sim doctor
