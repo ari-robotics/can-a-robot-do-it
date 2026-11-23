@@ -121,6 +121,7 @@ def main(argv=None):
               f"— {res['best_fixed']['reached']}/{res['n_targets']} targets"); print('Report in', a.out); return
     if a.cmd in ('execute', 'grasp'):
         from .execute import run_batch
+        from .robots import register; [register(c) for c in sc.get('robot', {}).get('candidates', [])]
         base = a.base; robot = a.robot; dj = os.path.join(os.path.dirname(os.path.abspath(a.scene)), 'out', 'diagnostic.json'); diag = json.load(open(dj)) if os.path.exists(dj) else None
         if base is None:
             if not diag: sys.exit('No --base given and no diagnostic.json found: run `ari-sim diagnose` first or pass --base X Y PEDESTAL.')

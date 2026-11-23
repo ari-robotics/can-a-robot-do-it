@@ -39,6 +39,7 @@ from mujoco.studio import plugin
 import numpy as np
 
 from ari_sim import build
+from ari_sim import robots
 from ari_sim import spec as scene_spec
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -56,6 +57,8 @@ class SimPlugin(plugin.SimPlugin):
   def build_spec(self) -> mujoco.MjSpec:
     sc = scene_spec.load(SCENE)
     cyc = json.load(open(CYCLE))
+    for cand in sc.get('robot', {{}}).get('candidates', []):  # arms the scene declares itself (library models)
+      robots.register(cand)
     _, _, info = build.scene(cyc['robot'], scene_spec.resolve(sc), cyc['tool'], cyc['base'], name=sc['name'])
     self.robot, self.dt, self.qadr = cyc['robot'], cyc['dt'], info['qadr']
     self.paths = [(t['name'], np.asarray(t['q']), t['t']) for t in cyc['targets']]
